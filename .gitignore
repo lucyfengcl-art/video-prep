@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Test caches
+.pytest_cache/
+
+# Rednote video-making assets (not part of the tool)
+video-project/
+
+# Project output
+out/
+raw/
+*.processed.mp4
+*.cleaned.mp4
+*.subbed.mp4
+sample-frame.png
+.*.work/
+.*.filler-work/

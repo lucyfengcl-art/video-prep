@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Self-locating launcher for the bundled video-prep package.
+#
+# Lets the /prep-clips skill run the tool from ANY working directory after a
+# plain plugin install — no `cd` into the repo and no manual `uv sync`. uv
+# resolves Python + dependencies the first time it runs and reuses them after.
+#
+# Usage:  video-prep <console-script> [args...]
+#   e.g.  video-prep video-prep-edit ./raw
+#         video-prep video-prep-burn out/2026-06-20/final.mp4 --srt out/2026-06-20/final.srt
+set -euo pipefail
+
+# --- Resolve this script's real directory (follow symlinks) -----------------
+source=${BASH_SOURCE[0]}
+while [ -L "$source" ]; do
+  dir=$(cd -P "$(dirname "$source")" >/dev/null 2>&1 && pwd)
+  source=$(readlink "$source")
+  [[ $source != /* ]] && source=$dir/$source
+done
+script_dir=$(cd -P "$(dirname "$source")" >/dev/null 2>&1 && pwd)
+
+# --- Walk up to the project root (the dir holding pyproject.toml) ------------
+root=$script_dir
+while [ "$root" != "/" ] && [ ! -f "$root/pyproject.toml" ]; do
+  root=$(dirname "$root")
+done
+if [ ! -f "$root/pyproject.toml" ]; then
+  echo "video-prep: could not locate the bundled package (no pyproject.toml above $script_dir)" >&2
+  exit 1
+fi
+
+# --- Preflight: uv is the one thing we can't bootstrap ourselves -------------
+if ! command -v uv >/dev/null 2>&1; then
+  cat >&2 <<'EOF'
+video-prep: `uv` is not installed (it manages Python + dependencies for this tool).
+Install it once, then re-run:
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+EOF
+  exit 1
+fi
+
+# --- Keep the virtualenv out of the (ephemeral) plugin dir when possible -----
+# Plugin install dirs are rebuilt on update; CLAUDE_PLUGIN_DATA persists across
+# updates, so prefer it for the env and fall back to the project's own .venv.
+if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
+  export UV_PROJECT_ENVIRONMENT="$CLAUDE_PLUGIN_DATA/venv"
+fi
+
+# `uv run --project` keeps the CURRENT working directory, so relative paths the
+# user passes (./raw, out/...) still resolve against where they invoked the skill.
+exec uv run --project "$root" "$@"

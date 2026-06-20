@@ -1,0 +1,29 @@
+[project]
+name = "video-prep"
+version = "0.1.0"
+description = "Clean up raw video clips before editing: cut silence, transcribe speech to .srt in any language (Mandarin default), normalize speed, stitch in order"
+readme = "README.md"
+authors = [
+    { name = "Chenlu Feng", email = "lucyfengcl@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "auto-editor>=29.3.1",
+    "faster-whisper>=1.0.0",
+]
+
+[project.scripts]
+video-prep = "video_prep.cli:main"
+video-prep-edit = "video_prep.edit:main"
+video-prep-cut-filler = "video_prep.cut_filler:main"
+video-prep-burn = "video_prep.burn:main"
+video-prep-assemble = "video_prep.assemble:main"
+
+[build-system]
+requires = ["uv_build>=0.11.16,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
