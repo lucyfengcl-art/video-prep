@@ -3,6 +3,8 @@ name = "video-prep"
 version = "0.1.0"
 description = "Clean up raw video clips before editing: cut silence, transcribe speech to .srt in any language (Mandarin default), normalize speed, stitch in order"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Chenlu Feng", email = "lucyfengcl@gmail.com" }
 ]
