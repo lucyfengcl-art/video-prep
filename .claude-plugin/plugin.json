@@ -3,7 +3,7 @@
   "description": "Clean up raw video clips before editing: cut silence, transcribe subtitles in any language (Mandarin by default), normalize speed, and stitch clips in filename order — outputs clean clips + .srt ready to drop into any editor. Includes a /prep-clips skill plus helpers for filler-word removal and subtitle burning. Pre-processing, not the creative edit.",
   "version": "0.1.0",
   "author": {
-    "name": "Chenlu Feng",
+    "name": "lucyfengcl",
     "email": "lucyfengcl@gmail.com"
   }
 }

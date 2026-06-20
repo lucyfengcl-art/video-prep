@@ -3,7 +3,7 @@
   "name": "video-prep",
   "description": "Tools to clean up raw clips before editing: cut silence, subtitles in any language (Mandarin default), normalize speed, stitch in order.",
   "owner": {
-    "name": "Chenlu Feng",
+    "name": "lucyfengcl",
     "email": "lucyfengcl@gmail.com"
   },
   "plugins": [
@@ -11,7 +11,7 @@
       "name": "video-prep",
       "description": "Clean up raw video clips before editing — cut silence, subtitles in any language (Mandarin default), normalize speed, stitch in order — with a /prep-clips skill plus filler-word removal and subtitle burning.",
       "author": {
-        "name": "Chenlu Feng"
+        "name": "lucyfengcl"
       },
       "category": "media",
       "source": "."
