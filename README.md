@@ -1,5 +1,7 @@
 # video-prep
 
+**English** | [简体中文](README.zh-CN.md)
+
 Automate the tedious cleanup pass that almost every talking-head edit needs: cut
 silent gaps, transcribe speech to `.srt` (any language, Mandarin by default),
 normalize speed. Outputs a clean
