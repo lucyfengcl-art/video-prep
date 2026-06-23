@@ -23,7 +23,7 @@
   再装一个中文字体：`brew install --cask font-noto-sans-cjk-sc && fc-cache -f`
 
 字幕默认是普通话（`--language zh`）；加 `--language` 换成任意 Whisper 支持的语言即可。
-第一次运行会下载 Whisper 模型（`large-v3` 约 3GB），之后会用缓存。
+第一次运行会下载 Whisper 模型（默认 `large-v3-turbo` 约 1.6GB，比 `large-v3` 快约 2 倍，质量损失可忽略；要最高精度可用 `--model large-v3`），之后会用缓存。
 
 ## 安装
 
@@ -50,7 +50,7 @@ uv tool install git+https://github.com/lucyfengcl-art/video-prep
 
 ## 一条命令搞定
 
-素材按**文件名顺序**拼接，所以用 `1.MOV`、`2.MOV`（或 `01-...`、`02-...`）来定顺序。
+素材按**文件名自然顺序**拼接，所以 `1.MOV`、`2.MOV`、……、`10.MOV` 会正确排序，无需补零（`01-`、`02-` 也可以）。
 把素材放进 `./raw/`，然后：
 
 ```sh

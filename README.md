@@ -16,7 +16,9 @@ For each clip, in order:
 1. **Cut silence** with [`auto-editor`](https://auto-editor.com)
 2. **Transcribe** the trimmed audio (at natural speed, for best accuracy) with
    [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper), model
-   `large-v3`. Works in any Whisper language; defaults to Mandarin (`--language
+   `large-v3-turbo` (≈2× faster than `large-v3` on CPU, negligible quality loss;
+   use `--model large-v3` for maximum accuracy). Works in any Whisper language;
+   defaults to Mandarin (`--language
    zh`, override with `--language`). Runs on CPU anywhere, or a CUDA GPU
    automatically if one is present.
 3. **Speed up** to 1.2x with `ffmpeg` (`setpts` + `atempo`, preserves pitch)
@@ -35,7 +37,7 @@ Output:
 
 ```
 out/2026-06-15/                # today's date; pass --name to override
-├── 01.processed.mp4  01.srt   # each clip, processed (in filename order)
+├── 01.processed.mp4  01.srt   # each clip, processed (in natural filename order)
 ├── 02.processed.mp4  02.srt
 ├── final.mp4         final.srt        # clips merged in order
 └── final.subbed.mp4                   # merged + burned subtitles  ← upload this
@@ -76,8 +78,8 @@ This puts `video-prep`, `video-prep-edit`, `video-prep-burn`, and
 > Running the commands below from a **source checkout** instead? Use `uv sync`
 > once, then prefix each command with `uv run` (e.g. `uv run video-prep-edit`).
 
-The first transcription run downloads the Whisper model (~3 GB for
-`large-v3`); subsequent runs use the cached copy in `~/.cache/huggingface`.
+The first transcription run downloads the Whisper model (~1.6 GB for
+`large-v3-turbo`); subsequent runs use the cached copy in `~/.cache/huggingface`.
 
 ## Usage
 
@@ -119,12 +121,13 @@ out/
 
 All inputs are concatenated (in order) into one video before processing, so
 you get **one** `.mp4` + **one** `.srt`. Useful when the order is fixed —
-just prefix raw clips with `01-`, `02-`, ... and they concat in filename
-order. Silence between clips also gets trimmed (e.g. you repositioning the
+clips in a folder are sorted by **natural** filename order, so `1.mov, 2.mov,
+… 10.mov` sequence correctly with no zero-padding needed (`01-`, `02-` also
+works). Silence between clips also gets trimmed (e.g. you repositioning the
 phone).
 
 ```sh
-# combine a folder of clips named 01-intro.mov, 02-...mov, ...
+# combine a folder of clips named 1.mov, 2.mov, ... 10.mov
 video-prep ./raw/ --combine
 
 # custom output basename
@@ -226,8 +229,22 @@ font for selection.
 
 - `--margin 0.3s` if Mandarin tone tails are getting clipped
 - `--edit "audio:threshold=0.03"` to cut more aggressively on quiet audio
-- `--model medium` (or `small`) if `large-v3` is too slow on CPU and your audio
-  is clean
+- `--model large-v3` for maximum subtitle accuracy (slower); `--model medium`
+  (or `small`) if even the default `large-v3-turbo` is too slow on CPU
+- `--max-chars 0` to keep Whisper's original cue lengths (default 20 splits long
+  cues at punctuation so burned-in subtitles don't fill the frame)
+
+## Speeding up a multi-clip edit
+
+- **Re-runs are incremental.** `video-prep-edit` caches each `NN.processed.mp4` /
+  `NN.srt` by source mtime in the dated `out/` folder. Keep that folder and just
+  re-run after changing one raw clip — only that clip re-transcribes, then the
+  merge rebuilds. (Don't delete `out/` between runs.)
+- **Don't pairwise-merge ("divide and conquer").** The clips are the independent,
+  cacheable unit; the merge is one pass. Merging already-merged files re-encodes
+  the same footage repeatedly (slower, quality loss) and compounds A/V drift at
+  every level. Let the tool process clips once and concatenate them in a single
+  step.
 
 ## Use it from your coding agent
 

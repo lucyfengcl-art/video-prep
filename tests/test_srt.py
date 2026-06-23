@@ -7,9 +7,40 @@ from video_prep.srt import (
     rescale_srt,
     rescale_srt_text,
     rescale_timestamp,
+    split_cue,
     strip_leading_words,
     strip_leading_words_in_file,
 )
+
+
+def test_split_cue_short_text_unchanged():
+    # A cue at or under max_chars passes through as a single piece.
+    assert split_cue(0, 1000, "你好世界", 20) == [(0, 1000, "你好世界")]
+
+
+def test_split_cue_splits_at_punctuation_without_losing_text():
+    text = "上个视频发完之后,好多人都来问我那个小工具,我后来整理成了一个skill"
+    cues = split_cue(0, 10000, text, 20)
+    assert len(cues) > 1
+    # No on-screen line exceeds the cap.
+    assert all(len(t) <= 20 for _, _, t in cues)
+    # Nothing is dropped (ignoring spaces collapsed at break points).
+    assert "".join(t for _, _, t in cues).replace(" ", "") == text.replace(" ", "")
+
+
+def test_split_cue_timeline_is_contiguous_and_covers_window():
+    text = "第一句话在这里结束,第二句话也到这里,第三句话同样结束了哦"
+    cues = split_cue(2000, 8000, text, 12)
+    assert cues[0][0] == 2000
+    assert cues[-1][1] == 8000
+    # Pieces tile the window with no gaps or overlaps.
+    for (_, end_a, _), (start_b, _, _) in zip(cues, cues[1:]):
+        assert end_a == start_b
+
+
+def test_split_cue_disabled_with_zero():
+    long_text = "这是一句没有标点的很长很长很长很长很长很长很长的话"
+    assert split_cue(0, 1000, long_text, 0) == [(0, 1000, long_text)]
 
 
 def test_rescale_timestamp_basic():

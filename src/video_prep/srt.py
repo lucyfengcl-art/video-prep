@@ -115,6 +115,76 @@ def concat_srts(
     return out_path
 
 
+# Punctuation we prefer to break a long cue after (CJK + ASCII clause marks).
+_BREAK_AFTER = "，。、！？；：,!?;:"
+
+
+def _split_text(text: str, max_chars: int) -> list[str]:
+    """Split `text` into pieces of at most `max_chars`, breaking after
+    punctuation where possible.
+
+    Whisper emits one cue per spoken segment, which can be a whole sentence;
+    burned in, that fills the frame with a wall of text. Splitting at clause
+    punctuation keeps each on-screen line short and readable. Stray 1-2 char
+    fragments (e.g. a lone "。") are merged back into the previous piece, and
+    anything still over `max_chars` is hard-wrapped as a last resort.
+    """
+    text = text.strip()
+    if max_chars <= 0 or len(text) <= max_chars:
+        return [text] if text else []
+
+    parts: list[str] = []
+    buf = ""
+    for ch in text:
+        buf += ch
+        if ch in _BREAK_AFTER:
+            parts.append(buf)
+            buf = ""
+    if buf:
+        parts.append(buf)
+
+    merged: list[str] = []
+    for p in parts:
+        if merged and len(p.strip()) <= 2:
+            merged[-1] += p
+        else:
+            merged.append(p)
+
+    chunks: list[str] = []
+    for p in merged:
+        while len(p) > max_chars:
+            chunks.append(p[:max_chars])
+            p = p[max_chars:]
+        if p:
+            chunks.append(p)
+    return [c for c in chunks if c.strip()]
+
+
+def split_cue(
+    start_ms: int, end_ms: int, text: str, max_chars: int
+) -> list[tuple[int, int, str]]:
+    """Split one cue into <=`max_chars` pieces sharing its time window.
+
+    The window is apportioned across pieces by character count, so each piece is
+    shown for roughly the time it takes to read it. Returns (start_ms, end_ms,
+    text) tuples; a cue at or under `max_chars` comes back unchanged.
+    """
+    chunks = _split_text(text, max_chars)
+    if len(chunks) <= 1:
+        stripped = text.strip()
+        return [(start_ms, end_ms, stripped)] if stripped else []
+
+    total = sum(len(c) for c in chunks)
+    span = max(0, end_ms - start_ms)
+    out: list[tuple[int, int, str]] = []
+    t = start_ms
+    for i, chunk in enumerate(chunks):
+        end = end_ms if i == len(chunks) - 1 else t + round(span * len(chunk) / total)
+        out.append((t, end, chunk))
+        t = end
+    return out
+
+
 # Punctuation/whitespace that may trail a stripped word at the start of a line.
 _TRAILING_PUNCT = "，。、！？!?,.:;"
 

@@ -60,6 +60,7 @@ def edit(
     edit_expression: str = "audio",
     language: str = "zh",
     model: str = DEFAULT_MODEL,
+    max_chars: int = 20,
 ) -> dict[str, Path]:
     """Process `clips`, merge them in order, and burn subtitles into out_dir.
 
@@ -85,7 +86,7 @@ def edit(
             result = process_clip(
                 src, out_dir, out_name=name,
                 speed=speed, margin=margin, edit_expression=edit_expression,
-                language=language, model=model,
+                language=language, model=model, max_chars=max_chars,
             )
             video, srt = result.video, result.srt
         videos.append(video)
@@ -162,6 +163,11 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--edit", default="audio", help="auto-editor edit expr")
     parser.add_argument("--language", default="zh", help="Whisper language code")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="faster-whisper model")
+    parser.add_argument(
+        "--max-chars", type=int, default=20,
+        help="Split subtitle cues longer than this many chars (0 to disable; "
+             "default: 20, tuned for Mandarin)",
+    )
     return parser
 
 
@@ -182,7 +188,7 @@ def main(argv: list[str] | None = None) -> int:
         outputs = edit(
             clips, out_dir,
             speed=args.speed, margin=args.margin, edit_expression=args.edit,
-            language=args.language, model=args.model,
+            language=args.language, model=args.model, max_chars=args.max_chars,
         )
     except subprocess.CalledProcessError as e:
         print(f"failed ({e.cmd[0]} exited {e.returncode})", file=sys.stderr)

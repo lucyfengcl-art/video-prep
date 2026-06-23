@@ -29,6 +29,7 @@ def process_clip(
     edit_expression: str = "audio",
     language: str = "zh",
     model: str = DEFAULT_MODEL,
+    max_chars: int = 20,
     keep_intermediates: bool = False,
 ) -> ProcessResult:
     """Run the full pipeline on one clip.
@@ -38,6 +39,7 @@ def process_clip(
     best subtitle accuracy; rescaling at the end keeps subs in sync.
 
     `out_name` overrides the output basename (default: the input stem).
+    `max_chars` caps subtitle cue length (split at punctuation); 0 disables it.
     """
     src = Path(src)
     out_dir = Path(out_dir)
@@ -51,7 +53,8 @@ def process_clip(
     cut_silence(src, cut_path, margin=margin, edit_expression=edit_expression)
 
     srt_raw = transcribe_to_srt(
-        cut_path, work_dir, language=language, model=model, output_name=stem
+        cut_path, work_dir, language=language, model=model,
+        output_name=stem, max_chars=max_chars,
     )
 
     final_video = out_dir / f"{stem}.processed.mp4"
@@ -76,6 +79,7 @@ def process_combined(
     edit_expression: str = "audio",
     language: str = "zh",
     model: str = DEFAULT_MODEL,
+    max_chars: int = 20,
     keep_intermediates: bool = False,
 ) -> ProcessResult:
     """Concatenate `sources` in given order, then run the full pipeline once.
@@ -83,6 +87,7 @@ def process_combined(
     Concat happens before silence-cutting, so pauses between clips (e.g. you
     repositioning the phone) also get trimmed. Single transcription pass over
     the whole video yields one .srt naturally aligned to the final output.
+    `max_chars` caps subtitle cue length (split at punctuation); 0 disables it.
     """
     if not sources:
         raise ValueError("no source clips provided")
@@ -99,7 +104,8 @@ def process_combined(
     cut_silence(merged, cut_path, margin=margin, edit_expression=edit_expression)
 
     srt_raw = transcribe_to_srt(
-        cut_path, work_dir, language=language, model=model, output_name=name
+        cut_path, work_dir, language=language, model=model,
+        output_name=name, max_chars=max_chars,
     )
 
     final_video = out_dir / f"{name}.processed.mp4"

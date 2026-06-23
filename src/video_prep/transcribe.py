@@ -11,7 +11,9 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-DEFAULT_MODEL = "large-v3"
+# large-v3-turbo is ~2x faster than large-v3 on CPU with negligible quality loss
+# for short-form subtitles; pass --model large-v3 when you want maximum accuracy.
+DEFAULT_MODEL = "large-v3-turbo"
 
 
 def _pick_runtime(device: str, compute_type: str) -> tuple[str, str]:
@@ -88,15 +90,20 @@ def transcribe_to_srt(
     language: str = "zh",
     model: str = DEFAULT_MODEL,
     output_name: str | None = None,
+    max_chars: int = 0,
     device: str = "auto",
     compute_type: str = "auto",
 ) -> Path:
     """Transcribe `src` and write an .srt into `out_dir`.
 
-    The output filename is `<output_name>.srt` (default: input stem). `device`
-    and `compute_type` accept "auto" (detect GPU, else int8 CPU) or any value
-    faster-whisper understands ("cpu"/"cuda", "int8"/"float16"/...).
+    The output filename is `<output_name>.srt` (default: input stem). When
+    `max_chars` > 0, cues longer than that are split at punctuation (see
+    `srt.split_cue`) so burned subtitles stay short; 0 keeps Whisper's segments
+    as-is. `device` and `compute_type` accept "auto" (detect GPU, else int8 CPU)
+    or any value faster-whisper understands ("cpu"/"cuda", "int8"/"float16"/...).
     """
+    from video_prep.srt import split_cue
+
     src = Path(src)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -106,17 +113,24 @@ def transcribe_to_srt(
     whisper = _load_model(model, device, compute_type)
     segments, _info = whisper.transcribe(str(src), language=language)
 
-    lines: list[str] = []
-    idx = 1
+    cues: list[tuple[int, int, str]] = []
     for seg in segments:
         text = seg.text.strip()
         if not text:
             continue
+        start_ms = max(0, round(seg.start * 1000))
+        end_ms = max(0, round(seg.end * 1000))
+        if max_chars > 0:
+            cues.extend(split_cue(start_ms, end_ms, text, max_chars))
+        else:
+            cues.append((start_ms, end_ms, text))
+
+    lines: list[str] = []
+    for idx, (start_ms, end_ms, text) in enumerate(cues, 1):
         lines.append(str(idx))
-        lines.append(f"{_format_ts(seg.start)} --> {_format_ts(seg.end)}")
+        lines.append(f"{_format_ts(start_ms / 1000)} --> {_format_ts(end_ms / 1000)}")
         lines.append(text)
         lines.append("")
-        idx += 1
 
     out_path = out_dir / f"{stem}.srt"
     out_path.write_text("\n".join(lines) + "\n" if lines else "", encoding="utf-8")

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -13,17 +14,35 @@ from video_prep.transcribe import DEFAULT_MODEL
 VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".mkv", ".webm"}
 
 
+def natural_key(name: str) -> list:
+    """Sort key that orders embedded numbers numerically, not lexically.
+
+    Plain `sorted()` orders `1, 10, 11, 2, 3` because it compares strings
+    character by character. This splits on digit runs so `2.mov` sorts before
+    `10.mov` -- i.e. clips named `1, 2, ... 10, 11` merge in the order you'd
+    expect, with no need to zero-pad them to `01, 02, ...`.
+    """
+    return [
+        int(tok) if tok.isdigit() else tok.lower()
+        for tok in re.split(r"(\d+)", name)
+    ]
+
+
 def _expand_inputs(inputs: list[Path]) -> list[Path]:
     """Expand directories to their video files, preserving caller-given order.
 
     Files passed explicitly keep argv order; directory contents are sorted by
-    filename (so prefixing clips with `01-`, `02-`, ... gives a stable order).
+    `natural_key`, so clips named `1.mov, 2.mov, ... 10.mov` merge in numeric
+    order without zero-padding.
     """
     files: list[Path] = []
     for p in inputs:
         if p.is_dir():
             files.extend(
-                sorted(f for f in p.iterdir() if f.suffix.lower() in VIDEO_EXTS)
+                sorted(
+                    (f for f in p.iterdir() if f.suffix.lower() in VIDEO_EXTS),
+                    key=lambda f: natural_key(f.name),
+                )
             )
         elif p.is_file():
             files.append(p)
@@ -94,6 +113,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help=f"faster-whisper model (default: {DEFAULT_MODEL})",
     )
     parser.add_argument(
+        "--max-chars",
+        type=int,
+        default=20,
+        help="Split subtitle cues longer than this many chars (0 to disable; "
+             "default: 20, tuned for Mandarin)",
+    )
+    parser.add_argument(
         "--keep-intermediates",
         action="store_true",
         help="Keep the work directory after processing",
@@ -119,6 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         edit_expression=args.edit,
         language=args.language,
         model=args.model,
+        max_chars=args.max_chars,
         keep_intermediates=args.keep_intermediates,
     )
 
