@@ -240,8 +240,12 @@ font for selection.
 - `--edit "audio:threshold=0.03"` to cut more aggressively on quiet audio
 - `--model large-v3` for maximum subtitle accuracy (slower); `--model medium`
   (or `small`) if even the default `large-v3-turbo` is too slow on CPU
-- `--max-chars 0` to keep Whisper's original cue lengths (default 20 splits long
-  cues at punctuation so burned-in subtitles don't fill the frame)
+- `--language en` (or any Whisper code, or `auto` to detect) for non-Mandarin
+  clips; subtitle wrapping adapts (word-wrap for spaced languages, char-wrap for
+  Chinese)
+- `-j 3` to process clips in parallel on a multi-core CPU (~1.4×)
+- `--max-chars` controls subtitle cue length: default `-1` auto-picks by language
+  (20 for Chinese, 42 for spaced languages); `0` keeps Whisper's original lengths
 
 ## Speeding up a multi-clip edit
 

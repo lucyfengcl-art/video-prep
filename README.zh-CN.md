@@ -3,7 +3,7 @@
 # video-prep
 
 把剪辑前那些没人想做的"体力活"自动化：剪掉静音停顿、自动生成字幕（任意语言，默认普通话）、
-统一倍速、按文件名顺序拼接。每个素材输出一段干净的 `.mp4` + 对应的 `.srt`，
+统一倍速、按文件名自然顺序拼接。每个素材输出一段干净的 `.mp4` + 对应的 `.srt`，
 直接拖进你常用的剪辑软件（剪映 / Premiere / DaVinci…）做真正的排版、转场和润色。
 
 这是**前期清理，不是创作性剪辑**——排列、转场、配乐、风格仍然交给你自己的流程。
@@ -68,10 +68,14 @@ video-prep-edit ./raw
 
 ## 常用后续操作
 
-- **删掉口头禅**（然后、就是、于是…），多字词也支持，还能只删某一处：
+- **删掉口头禅**（然后、就是… / um、uh…）——工具**先建议、你来定**：扫描后列出每处及上下文，
+  在你用 `--indices` 选定之前不会删任何东西。`--word` 可省略（内置 `zh`/`en` 默认词表），
+  匹配大小写不敏感，也支持多字词（于是、"you know"）：
   ```sh
-  video-prep-cut-filler out/<日期>/final.mp4 --word 于是 --dry-run   # 先列出所有出现的位置
-  video-prep-cut-filler out/<日期>/final.mp4 --word 于是 --indices 3 # 只删第 3 处
+  # 1. 扫描（--json 输出机器可读的匹配项，便于挑选）
+  video-prep-cut-filler out/<日期>/final.mp4 --json
+  # 2. 只删你选中的几处（或 --indices all）
+  video-prep-cut-filler out/<日期>/final.mp4 --indices 1,4,5
   ```
 - **重新烧 / 调整字幕样式**：
   ```sh

@@ -1,7 +1,7 @@
 ---
 name: prep-clips
-description: Runs the tedious cleanup pass on raw video recordings before the real edit — cut silent gaps, transcribe subtitles in any language (Mandarin by default), normalize speed, and stitch clips in filename order. Use when the user drops recordings into a raw/ folder or asks to "clean up", "prep", or "edit" their clips. Outputs clean per-clip mp4 + .srt (plus an optional merged, subtitle-burned preview) ready to drop into any editor (CapCut, Premiere, DaVinci, …). This is pre-processing, not the creative edit.
-version: 1.1.0
+description: Runs the tedious cleanup pass on raw video recordings before the real edit — cut silent gaps, transcribe subtitles in any language (Mandarin by default), normalize speed, and stitch clips in natural numeric order. Use when the user drops recordings into a raw/ folder or asks to "clean up", "prep", or "edit" their clips. Outputs clean per-clip mp4 + .srt (plus an optional merged, subtitle-burned preview) ready to drop into any editor (CapCut, Premiere, DaVinci, …). This is pre-processing, not the creative edit.
+version: 1.1.1
 ---
 
 # Prep raw clips for editing
@@ -9,7 +9,7 @@ version: 1.1.0
 Do the boring cleanup pass on raw recordings so the clips are ready for whatever
 edit comes next. It handles the parts nobody wants to do by hand — cut silent
 gaps, add subtitles in any language (Mandarin by default), normalize speed, and
-stitch clips in filename order — and hands back clean clips plus matching `.srt`,
+stitch clips in natural numeric order — and hands back clean clips plus matching `.srt`,
 in one command.
 
 This is **pre-processing, not the creative edit.** Arrangement, transitions,
