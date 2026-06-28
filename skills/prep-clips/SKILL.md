@@ -1,7 +1,7 @@
 ---
 name: prep-clips
 description: Runs the tedious cleanup pass on raw video recordings before the real edit — cut silent gaps, transcribe subtitles in any language (Mandarin by default), normalize speed, and stitch clips in natural numeric order. Use when the user drops recordings into a raw/ folder or asks to "clean up", "prep", or "edit" their clips. Outputs clean per-clip mp4 + .srt (plus an optional merged, subtitle-burned preview) ready to drop into any editor (CapCut, Premiere, DaVinci, …). This is pre-processing, not the creative edit.
-version: 1.1.1
+version: 1.1.2
 ---
 
 # Prep raw clips for editing
@@ -27,20 +27,29 @@ prepares the raw material.
 
 ## How to invoke the tool
 
-The Python package ships **inside this plugin**, so never `cd` into a repo and
-never run a bare `uv run video-prep-...`. Instead call the bundled launcher,
-which finds the package and runs it (auto-installing Python + deps on first use)
-from **whatever directory the user is in**:
+The tool runs as console scripts — `video-prep-edit`, `video-prep-cut-filler`,
+`video-prep-burn`, etc. There are two ways to reach them; pick whichever applies,
+then use the bare command names in the examples below:
 
-```sh
-"${CLAUDE_SKILL_DIR}/scripts/video-prep" <console-script> [args...]
-```
+1. **Installed on `PATH`** — if `video-prep-edit` resolves (e.g. the user ran
+   `uv tool install git+https://github.com/lucyfengcl-art/video-prep`), call the
+   commands directly: `video-prep-edit ./raw`.
+2. **Bundled launcher** (no separate install) — this skill ships a self-locating
+   launcher at `scripts/video-prep` next to this `SKILL.md` that finds the package
+   and runs it via `uv`, auto-installing Python + deps on first use. Prefix the
+   command with it:
+   ```sh
+   "<skill-dir>/scripts/video-prep" video-prep-edit ./raw
+   ```
+   Resolve `<skill-dir>` to the folder containing this `SKILL.md`. The host
+   usually exposes it as an env var — `$CLAUDE_SKILL_DIR` (Claude Code),
+   `$CODEX_SKILL_DIR` / `$SKILL_DIR` (other agents) — otherwise use the absolute
+   path of the directory you loaded this `SKILL.md` from.
 
-`${CLAUDE_SKILL_DIR}` is set when running as an installed plugin and points at
-this skill's folder. If it is empty (e.g. running the skill from source), use the
-absolute path to `scripts/video-prep` next to this `SKILL.md` instead. The
-launcher keeps the current working directory, so relative paths like `./raw`
-resolve against the user's folder.
+Either way, don't `cd` into a source checkout or run a bare `uv run video-prep-…`.
+The commands keep the current working directory, so relative paths like `./raw`
+resolve against the user's folder. The examples below use the bare command names;
+add the launcher prefix from (2) if the CLI isn't on `PATH`.
 
 ## Prerequisites (check once)
 
@@ -71,10 +80,11 @@ and `.srt` files (just skips the burned preview); tell the user how to enable it
    `--language auto` to detect it. If it isn't obvious from the request, ask the
    user. Subtitle line length adapts automatically (Chinese wraps by character,
    spaced languages like English wrap on whole words).
-3. Run the one-command prep (via the bundled launcher — see "How to invoke"):
+3. Run the one-command prep (see "How to invoke" — prefix with the launcher if
+   `video-prep-edit` isn't on `PATH`):
    ```sh
-   "${CLAUDE_SKILL_DIR}/scripts/video-prep" video-prep-edit ./raw          # Mandarin
-   "${CLAUDE_SKILL_DIR}/scripts/video-prep" video-prep-edit ./raw --language en
+   video-prep-edit ./raw                 # Mandarin
+   video-prep-edit ./raw --language en   # English
    ```
    This writes everything into `out/<today's date>/`:
    - `NN.processed.mp4` + `NN.srt` — each clip, cleaned (**the main handoff** — drop
@@ -122,18 +132,17 @@ A folder of 10+ clips works the same way — one command — but keep these in m
 
   Drive it as a two-step, user-in-the-loop flow:
   ```sh
-  VP="${CLAUDE_SKILL_DIR}/scripts/video-prep"
   # 1. Scan with the language's default fillers and get machine-readable matches:
-  "$VP" video-prep-cut-filler out/<date>/final.mp4 --language en --json
+  video-prep-cut-filler out/<date>/final.mp4 --language en --json
   # (present the matches to the user with their prev/this/next context, let them pick)
   # 2. Cut only the ones they chose:
-  "$VP" video-prep-cut-filler out/<date>/final.mp4 --language en --indices 1,4,5
+  video-prep-cut-filler out/<date>/final.mp4 --language en --indices 1,4,5
   ```
   Use `--word 于是` to target a specific word, or `--indices all` to take every
   match. Always confirm the selection with the user before cutting.
 - **Re-burn / restyle subtitles** on a preview:
   ```sh
-  "${CLAUDE_SKILL_DIR}/scripts/video-prep" video-prep-burn out/<date>/final.mp4 \
+  video-prep-burn out/<date>/final.mp4 \
       --srt out/<date>/final.srt --font-size 18 --outline 2 --margin-v 100
   ```
 
