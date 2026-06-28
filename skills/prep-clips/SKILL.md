@@ -1,7 +1,7 @@
 ---
 name: prep-clips
 description: Runs the tedious cleanup pass on raw video recordings before the real edit — cut silent gaps, transcribe subtitles in any language (Mandarin by default), normalize speed, and stitch clips in filename order. Use when the user drops recordings into a raw/ folder or asks to "clean up", "prep", or "edit" their clips. Outputs clean per-clip mp4 + .srt (plus an optional merged, subtitle-burned preview) ready to drop into any editor (CapCut, Premiere, DaVinci, …). This is pre-processing, not the creative edit.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Prep raw clips for editing
@@ -61,11 +61,20 @@ and `.srt` files (just skips the burned preview); tell the user how to enable it
 
 ## Steps
 
-1. Confirm where the raw clips are (default `./raw/`). Clips merge in **filename
-   order**, so `1.MOV`, `2.MOV` (or `01-...`, `02-...`) define the sequence.
-2. Run the one-command prep (via the bundled launcher — see "How to invoke"):
+1. Confirm where the raw clips are (default `./raw/`) and check the sequence.
+   Clips merge in **natural numeric order**, so `1.MOV, 2.MOV, … 10.MOV` sort
+   correctly with no zero-padding, and mixed extensions (`.mp4`/`.MOV`) are fine.
+   With many clips, list the resolved order and confirm it with the user before
+   running — a wrong order otherwise wastes a long transcription pass.
+2. Pick the spoken language. The default is Mandarin (`--language zh`). For other
+   languages pass the Whisper code (e.g. `--language en` for English) or
+   `--language auto` to detect it. If it isn't obvious from the request, ask the
+   user. Subtitle line length adapts automatically (Chinese wraps by character,
+   spaced languages like English wrap on whole words).
+3. Run the one-command prep (via the bundled launcher — see "How to invoke"):
    ```sh
-   "${CLAUDE_SKILL_DIR}/scripts/video-prep" video-prep-edit ./raw
+   "${CLAUDE_SKILL_DIR}/scripts/video-prep" video-prep-edit ./raw          # Mandarin
+   "${CLAUDE_SKILL_DIR}/scripts/video-prep" video-prep-edit ./raw --language en
    ```
    This writes everything into `out/<today's date>/`:
    - `NN.processed.mp4` + `NN.srt` — each clip, cleaned (**the main handoff** — drop
@@ -74,20 +83,54 @@ and `.srt` files (just skips the burned preview); tell the user how to enable it
      stitched file
    - `final.subbed.mp4` — merged video with subtitles burned in, an **optional quick
      preview** to eyeball pacing or share as-is
-3. Report the output folder. Point the user at the cleaned per-clip files as the
+4. Report the output folder. Point the user at the cleaned per-clip files as the
    handoff for their edit, and mention `final.subbed.mp4` as an optional preview.
    Re-running reuses the same dated folder and only reprocesses clips whose source
    file changed.
 
+## Handling many clips
+
+A folder of 10+ clips works the same way — one command — but keep these in mind:
+
+- **One run, no divide-and-conquer.** Always process the whole folder in a single
+  `video-prep-edit` call. Do **not** batch the clips or merge them pairwise
+  yourself: the tool already cuts, transcribes, normalizes, and concatenates in one
+  pass, and manual splitting/merging re-encodes the same footage repeatedly (slower,
+  quality loss) and reintroduces audio/video drift at every seam.
+- **Run it in the background.** Transcription dominates (~10–20s per clip on CPU
+  with the default `large-v3-turbo`), so a large folder runs for many minutes and
+  will exceed a single foreground command's timeout. Launch the run in the
+  background and poll for completion instead of blocking on it.
+- **Parallelize with `-j`.** Pass `-j 3` to `video-prep-edit` to process several
+  clips at once (~1.4x faster on a multi-core CPU — transcription already uses all
+  cores, so the gain is sub-linear). Each worker loads its own ~1.5 GB model, so
+  keep it to 2–4 unless the machine has plenty of RAM.
+- **Re-runs are cheap.** Per-clip output is cached by source mtime in the dated
+  folder, so after you swap or re-trim one clip, re-running reprocesses only that
+  clip and rebuilds the merge. Keep the same `out/<date>/` folder — don't delete it.
+- **Sanity-check the result.** Confirm every clip produced an `NN.processed.mp4`
+  and that `final.mp4`'s duration ≈ the sum of the clips; a large gap means a clip
+  failed or was skipped.
+
 ## Common follow-ups
 
-- **Remove a filler word** (然后, 就是, 于是 …) from a merged clip — works for
-  multi-character Mandarin words and lets you target a single occurrence:
+- **Remove filler words** (然后, 就是 … / um, uh, you know …) — the cutter
+  **suggests, you decide**: it scans, lists matches with context, and cuts
+  *nothing* until you pass `--indices`. Default word lists exist per language
+  (Mandarin `zh`, English `en`); pass `--word` to override. Matching is
+  case-insensitive and handles multi-token words (于是, "you know").
+
+  Drive it as a two-step, user-in-the-loop flow:
   ```sh
   VP="${CLAUDE_SKILL_DIR}/scripts/video-prep"
-  "$VP" video-prep-cut-filler out/<date>/final.mp4 --word 于是 --dry-run   # list matches
-  "$VP" video-prep-cut-filler out/<date>/final.mp4 --word 于是 --indices 3 # cut just #3
+  # 1. Scan with the language's default fillers and get machine-readable matches:
+  "$VP" video-prep-cut-filler out/<date>/final.mp4 --language en --json
+  # (present the matches to the user with their prev/this/next context, let them pick)
+  # 2. Cut only the ones they chose:
+  "$VP" video-prep-cut-filler out/<date>/final.mp4 --language en --indices 1,4,5
   ```
+  Use `--word 于是` to target a specific word, or `--indices all` to take every
+  match. Always confirm the selection with the user before cutting.
 - **Re-burn / restyle subtitles** on a preview:
   ```sh
   "${CLAUDE_SKILL_DIR}/scripts/video-prep" video-prep-burn out/<date>/final.mp4 \

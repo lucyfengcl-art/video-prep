@@ -119,7 +119,40 @@ def concat_srts(
 _BREAK_AFTER = "，。、！？；：,!?;:"
 
 
-def _split_text(text: str, max_chars: int) -> list[str]:
+def _wrap_piece(piece: str, max_chars: int, *, space_delimited: bool) -> list[str]:
+    """Hard-wrap one over-long piece to <=`max_chars`.
+
+    Spaced scripts (English, …) wrap on word boundaries so words stay intact;
+    spaceless scripts (Chinese, …) wrap by character.
+    """
+    if not space_delimited:
+        out = []
+        while len(piece) > max_chars:
+            out.append(piece[:max_chars])
+            piece = piece[max_chars:]
+        if piece:
+            out.append(piece)
+        return out
+
+    out, line = [], ""
+    for word in piece.split():
+        if not line:
+            line = word
+        elif len(line) + 1 + len(word) <= max_chars:
+            line += " " + word
+        else:
+            out.append(line)
+            line = word
+        # A single word longer than max_chars: char-wrap it as a last resort.
+        while len(line) > max_chars:
+            out.append(line[:max_chars])
+            line = line[max_chars:]
+    if line:
+        out.append(line)
+    return out
+
+
+def _split_text(text: str, max_chars: int, *, space_delimited: bool = False) -> list[str]:
     """Split `text` into pieces of at most `max_chars`, breaking after
     punctuation where possible.
 
@@ -127,7 +160,8 @@ def _split_text(text: str, max_chars: int) -> list[str]:
     burned in, that fills the frame with a wall of text. Splitting at clause
     punctuation keeps each on-screen line short and readable. Stray 1-2 char
     fragments (e.g. a lone "。") are merged back into the previous piece, and
-    anything still over `max_chars` is hard-wrapped as a last resort.
+    anything still over `max_chars` is wrapped (on words when `space_delimited`,
+    else by character) as a last resort.
     """
     text = text.strip()
     if max_chars <= 0 or len(text) <= max_chars:
@@ -152,24 +186,23 @@ def _split_text(text: str, max_chars: int) -> list[str]:
 
     chunks: list[str] = []
     for p in merged:
-        while len(p) > max_chars:
-            chunks.append(p[:max_chars])
-            p = p[max_chars:]
-        if p:
-            chunks.append(p)
+        p = p.strip() if space_delimited else p
+        chunks.extend(_wrap_piece(p, max_chars, space_delimited=space_delimited))
     return [c for c in chunks if c.strip()]
 
 
 def split_cue(
-    start_ms: int, end_ms: int, text: str, max_chars: int
+    start_ms: int, end_ms: int, text: str, max_chars: int,
+    *, space_delimited: bool = False,
 ) -> list[tuple[int, int, str]]:
     """Split one cue into <=`max_chars` pieces sharing its time window.
 
     The window is apportioned across pieces by character count, so each piece is
-    shown for roughly the time it takes to read it. Returns (start_ms, end_ms,
-    text) tuples; a cue at or under `max_chars` comes back unchanged.
+    shown for roughly the time it takes to read it. `space_delimited` wraps on
+    word boundaries (English, …) instead of by character (Chinese, …). Returns
+    (start_ms, end_ms, text) tuples; a cue at or under `max_chars` is unchanged.
     """
-    chunks = _split_text(text, max_chars)
+    chunks = _split_text(text, max_chars, space_delimited=space_delimited)
     if len(chunks) <= 1:
         stripped = text.strip()
         return [(start_ms, end_ms, stripped)] if stripped else []

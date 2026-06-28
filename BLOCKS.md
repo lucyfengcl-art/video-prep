@@ -12,7 +12,7 @@ core. Each block is both a CLI command and an importable Python function.
 | `video-prep-edit DIR` | folder of raw clips | `out/<date>/` with per-clip `NN.processed.mp4` + `NN.srt`, merged `final.mp4` + `final.srt`, and burned `final.subbed.mp4` |
 | `video-prep DIR [--combine]` | clips | per-clip (or one combined) `.processed.mp4` + `.srt`, flat in `out/` |
 | `video-prep-assemble DIR` | `NN-talk/screen-*` segments | one 1080×1920 video; `talk` segments cropped + subtitled, `screen` normalized |
-| `video-prep-cut-filler VIDEO --word W` | finished video | `*.cleaned.mp4` + `.srt` with word `W` removed (audio+video+subs) |
+| `video-prep-cut-filler VIDEO [--word W]` | finished video | scans (built-in `zh`/`en` filler lists when `--word` omitted), lists matches with context, cuts only the `--indices` you pick → `*.cleaned.mp4` + `.srt` (audio+video+subs) |
 | `video-prep-burn VIDEO --srt S` | video + `.srt` | `*.subbed.mp4` with subtitles burned in |
 
 ## Composable functions (`from video_prep...`)

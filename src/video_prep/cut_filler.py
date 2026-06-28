@@ -15,12 +15,14 @@ Workflow:
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
+from video_prep.fillers import default_fillers
 from video_prep.transcribe import DEFAULT_MODEL, transcribe_segments
 
 # Punctuation we ignore when matching transcribed words against --word targets.
@@ -30,7 +32,9 @@ _PUNCT_RE = re.compile(
 
 
 def normalize_word(w: str) -> str:
-    return _PUNCT_RE.sub("", w)
+    """Strip surrounding punctuation/space and lowercase, so matching is
+    case-insensitive (needed for English: "So" should match "so")."""
+    return _PUNCT_RE.sub("", w).lower()
 
 
 def find_word_ranges(
@@ -259,8 +263,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--word",
         action="append",
-        required=True,
-        help="Filler word to cut (repeatable, e.g. --word 然后 --word 就是)",
+        help="Filler word to scan for (repeatable, e.g. --word 然后 --word 就是). "
+             "Defaults to a built-in list for --language if omitted.",
     )
     parser.add_argument(
         "-o", "--out",
@@ -278,13 +282,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Find and list matches without cutting",
+        help="Only list matches, never cut (this is also the default when "
+             "--indices is omitted)",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print matches as JSON (for tools/agents to present for selection)",
     )
     parser.add_argument(
         "--indices",
         help=(
-            "Cut only the listed matches (1-based). "
-            "Examples: '1,3,5-8' or 'all'. Default: cut everything found."
+            "Cut only the listed matches (1-based), e.g. '1,3,5-8' or 'all'. "
+            "Without it the tool just suggests matches and cuts nothing."
         ),
     )
     args = parser.parse_args(argv)
@@ -294,40 +304,71 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: video not found: {src}", file=sys.stderr)
         return 2
 
+    words = set(args.word) if args.word else set(default_fillers(args.language))
+    if not words:
+        print(
+            f"error: no filler words to scan for — pass --word, or use a language "
+            f"with built-in defaults (got --language {args.language!r}).",
+            file=sys.stderr,
+        )
+        return 2
+
     out = (args.out.resolve() if args.out
            else src.with_name(f"{src.stem}.cleaned{src.suffix}"))
 
-    print(f"Scanning {src.name} for: {', '.join(args.word)}")
+    if not args.json:
+        print(f"Scanning {src.name} for: {', '.join(sorted(words))}")
     matches, segments = find_word_ranges(
         src,
-        set(args.word),
+        words,
         model=args.model,
         language=args.language,
         pad=args.pad,
     )
 
+    if args.json:
+        print(json.dumps([
+            {
+                "index": i,
+                "start": round(m["start"], 3),
+                "end": round(m["end"], 3),
+                "duration": round(m["end"] - m["start"], 3),
+                "word": m["word"],
+                "prev": m["prev_segment_text"],
+                "this": m["segment_text"],
+                "next": m["next_segment_text"],
+            }
+            for i, m in enumerate(matches, 1)
+        ], ensure_ascii=False, indent=2))
+        # JSON callers drive selection themselves; only cut when --indices given.
+        if not args.indices:
+            return 0
+
     if not matches:
-        print("No occurrences found.")
+        if not args.json:
+            print("No occurrences found.")
         return 0
 
-    total = sum(m["end"] - m["start"] for m in matches)
-    print(f"\nFound {len(matches)} occurrence(s), {total:.2f}s total:")
-    print(_format_match_table(matches))
+    if not args.json:
+        total = sum(m["end"] - m["start"] for m in matches)
+        print(f"\nFound {len(matches)} occurrence(s), {total:.2f}s total:")
+        print(_format_match_table(matches))
 
-    if args.dry_run:
-        print("(dry-run: nothing written)")
+    # Suggest-only unless the user explicitly picked which matches to cut.
+    if args.dry_run or not args.indices:
+        if not args.json:
+            print(
+                "Nothing written. Choose matches to remove and re-run with "
+                "--indices '1,3,5' (or --indices all)."
+            )
         return 0
 
-    if args.indices:
-        chosen = parse_indices(args.indices, len(matches))
-        selected = [matches[i - 1] for i in chosen]
-        print(
-            f"Cutting {len(selected)} of {len(matches)} matches "
-            f"(indices: {chosen}) -> {out}"
-        )
-    else:
-        selected = matches
-        print(f"\nCutting all {len(matches)} matches -> {out}")
+    chosen = parse_indices(args.indices, len(matches))
+    selected = [matches[i - 1] for i in chosen]
+    print(
+        f"Cutting {len(selected)} of {len(matches)} matches "
+        f"(indices: {chosen}) -> {out}"
+    )
     ranges = [(m["start"], m["end"]) for m in selected]
     cut_ranges(src, out, ranges)
 
