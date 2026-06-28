@@ -66,6 +66,12 @@ The sections below cover the lower-level commands (`video-prep`, `-burn`,
 
 ## Install
 
+> **Easiest: let your coding agent do it.** If you already use Claude Code or
+> Codex, just tell it: *"install the video-prep skill from
+> github.com/lucyfengcl-art/video-prep"* — the agent runs the right steps for its
+> platform (plugin install for Claude Code, skill install or `uv tool install`
+> for Codex). The manual commands are below if you'd rather do it yourself.
+
 Install the CLI globally straight from GitHub — works on any machine, no clone:
 
 ```sh

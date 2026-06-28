@@ -27,6 +27,11 @@
 
 ## 安装
 
+> **最省事：让你的编程 Agent 帮你装。** 如果你已经在用 Claude Code 或 Codex，
+> 直接对它说：*"帮我从 github.com/lucyfengcl-art/video-prep 安装 video-prep 技能"*，
+> 它会按各自平台跑对应步骤（Claude Code 装插件，Codex 装技能或 `uv tool install`）。
+> 想自己手动装，见下面的命令。
+
 ### 在 Claude Code 里用（插件 + 技能）
 
 ```
