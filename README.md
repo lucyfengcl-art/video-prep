@@ -161,33 +161,42 @@ touch-ups.
    stay aligned with audio after the speed change. If they drift, the
    timestamp rescaling has a bug (off-by-1.2x).
 
-## Cutting filler words (然后, 就是, etc.)
+## Cutting filler words (然后, 就是 … / um, uh …)
 
-After the main pipeline finishes, you can scrub a finished video for spoken
-filler words and remove them — from audio AND video — in one pass:
+After the main pipeline, scrub a finished video for spoken filler words — removed
+from audio AND video together. The cutter **suggests, you decide**: it scans and
+lists matches with sentence context, and removes nothing until you pick which
+with `--indices`.
 
 ```sh
-# dry-run: list every 然后 with its time range
-video-prep-cut-filler out/combined.processed.mp4 --word 然后 --dry-run
+# 1. Scan with the language's built-in filler list (zh by default); lists matches
+video-prep-cut-filler out/final.mp4
 
-# cut for real (writes combined.processed.cleaned.mp4 + .srt next to input)
-video-prep-cut-filler out/combined.processed.mp4 --word 然后
+# English clip; --json prints matches for a tool/agent to present for selection
+video-prep-cut-filler out/final.mp4 --language en --json
 
-# explicit output, multiple filler words
-video-prep-cut-filler out/combined.processed.mp4 \
-    --word 然后 --word 就是 \
-    -o out/combined.cleaned.mp4
+# target specific words instead of the defaults
+video-prep-cut-filler out/final.mp4 --word 然后 --word 就是
+
+# 2. Cut only the matches you chose (1-based ranges, or 'all')
+video-prep-cut-filler out/final.mp4 --indices 1,3,5-8
+video-prep-cut-filler out/final.mp4 --word 然后 --indices all -o out/final.cleaned.mp4
 ```
+
+Notes:
+
+- Built-in filler lists exist for `zh` and `en`; `--word` overrides them.
+- Matching is case-insensitive and spans multi-token words (于是, "you know").
+- Each match shows prev/this/next context, so you can tell whether an ambiguous
+  word (English "so", "like") is really a filler before cutting it.
 
 How it works:
 
-1. Transcribes with word-level timestamps to get per-word start/end times
-2. Builds an ffmpeg `select`/`aselect` filter that drops every matching word's
-   time range — audio and video stay in sync
-3. Re-transcribes the cleaned video to produce a fresh `.srt` on the new
-   timeline (no fragile timestamp-offset math)
-4. Strips any sentence-initial filler that Whisper *re-hallucinates* from
-   context (a known Whisper-on-Chinese quirk)
+1. Transcribes with word-level timestamps to get per-word start/end times.
+2. An ffmpeg `select`/`aselect` filter drops every chosen word's time range —
+   audio and video stay in sync.
+3. Rebuilds the `.srt` from the same transcription — dropping the cut tokens and
+   shifting later timestamps onto the new timeline (no second transcription pass).
 
 Each cut is ~0.2–0.6s, so expect roughly that × N word occurrences shaved off
 the total runtime. Visual jump cuts are tiny and read as normal Rednote pacing.
@@ -240,6 +249,10 @@ font for selection.
   `NN.srt` by source mtime in the dated `out/` folder. Keep that folder and just
   re-run after changing one raw clip — only that clip re-transcribes, then the
   merge rebuilds. (Don't delete `out/` between runs.)
+- **Parallelize with `-j N`.** `video-prep-edit -j 3 ./raw` processes several
+  clips at once (~1.4× on a multi-core CPU; sub-linear because transcription
+  already uses every core). Each worker loads its own ~1.5 GB model, so keep `N`
+  to 2–4 unless you have plenty of RAM.
 - **Don't pairwise-merge ("divide and conquer").** The clips are the independent,
   cacheable unit; the merge is one pass. Merging already-merged files re-encodes
   the same footage repeatedly (slower, quality loss) and compounds A/V drift at

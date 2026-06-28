@@ -183,3 +183,29 @@ def test_concat_srts_length_mismatch_raises(tmp_path: Path):
     a.write_text("1\n00:00:00,000 --> 00:00:01,000\nx\n", encoding="utf-8")
     with pytest.raises(ValueError):
         concat_srts([a], [0.0, 1.0], tmp_path / "out.srt")
+
+
+def test_split_cue_english_wraps_on_word_boundaries():
+    text = "so basically I think this is a really interesting point to make"
+    cues = split_cue(0, 4000, text, 20, space_delimited=True)
+    lines = [t for _, _, t in cues]
+    assert len(lines) > 1
+    assert all(len(t) <= 20 for t in lines)
+    # No word is split across lines: rejoining yields the original word sequence.
+    assert " ".join(lines).split() == text.split()
+
+
+def test_split_cue_chinese_wraps_by_character():
+    text = "这是一句没有标点符号的很长很长很长很长很长的中文句子需要按字符换行"
+    cues = split_cue(0, 5000, text, 12, space_delimited=False)
+    lines = [t for _, _, t in cues]
+    assert all(len(t) <= 12 for t in lines)
+    assert "".join(lines) == text
+
+
+def test_fillers_defaults():
+    from video_prep.fillers import default_fillers
+    assert "um" in default_fillers("en")
+    assert "就是" in default_fillers("zh")
+    assert default_fillers("xx") == []
+    assert default_fillers(None) == []

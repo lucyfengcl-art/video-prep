@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import date
 from pathlib import Path
 
@@ -35,6 +36,17 @@ from video_prep.transcribe import DEFAULT_MODEL
 def _is_fresh(out: Path, src: Path) -> bool:
     """True if `out` exists and is at least as new as `src`."""
     return out.exists() and out.stat().st_mtime >= src.stat().st_mtime
+
+
+def _process_clip_task(src: Path, out_dir: Path, name: str, kwargs: dict) -> tuple[Path, Path]:
+    """Run one clip's pipeline; module-level so it's picklable for a process pool.
+
+    Each worker process loads its own Whisper model (~1.5 GB), so keep `--jobs`
+    modest on low-RAM machines. Transcription already uses all CPU cores, so the
+    real-world gain is sub-linear (~1.4x), mostly from overlapping load/decode.
+    """
+    result = process_clip(src, out_dir, out_name=name, **kwargs)
+    return result.video, result.srt
 
 
 def probe_duration(path: Path) -> float:
@@ -60,37 +72,61 @@ def edit(
     edit_expression: str = "audio",
     language: str = "zh",
     model: str = DEFAULT_MODEL,
-    max_chars: int = 20,
+    max_chars: int = -1,
+    jobs: int = 1,
 ) -> dict[str, Path]:
     """Process `clips`, merge them in order, and burn subtitles into out_dir.
 
     Returns a dict of the key output paths. Per-clip outputs are reused when
-    their source is unchanged (mtime cache).
+    their source is unchanged (mtime cache). `jobs` > 1 processes the uncached
+    clips in parallel across that many worker processes (each loads its own
+    model, so raise it carefully on low-RAM machines); the merge stays one pass.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     width = max(2, len(str(len(clips))))  # 01, 02, ... (or 001 for 100+ clips)
-    videos: list[Path] = []
-    srts: list[Path] = []
+    videos: list[Path | None] = [None] * len(clips)
+    srts: list[Path | None] = [None] * len(clips)
+    kwargs = dict(
+        speed=speed, margin=margin, edit_expression=edit_expression,
+        language=language, model=model, max_chars=max_chars,
+    )
 
-    for i, src in enumerate(clips, 1):
-        name = str(i).zfill(width)
+    # Resolve cache first; collect only the clips that actually need processing.
+    todo: list[tuple[int, Path, str]] = []  # (index, src, name)
+    for i, src in enumerate(clips):
+        name = str(i + 1).zfill(width)
         video = out_dir / f"{name}.processed.mp4"
         srt = out_dir / f"{name}.srt"
-        print(f"[{i}/{len(clips)}] {src.name} -> {name}")
-
         if _is_fresh(video, src) and _is_fresh(srt, src):
-            print("  cached")
+            print(f"[{i + 1}/{len(clips)}] {src.name} -> {name}  cached")
+            videos[i], srts[i] = video, srt
         else:
-            result = process_clip(
-                src, out_dir, out_name=name,
-                speed=speed, margin=margin, edit_expression=edit_expression,
-                language=language, model=model, max_chars=max_chars,
+            todo.append((i, src, name))
+
+    workers = max(1, min(jobs, len(todo)))
+    if workers > 1:
+        if jobs > 4:
+            print(
+                f"  note: --jobs {jobs} runs {workers} Whisper models at once "
+                "(~1.5 GB each); reduce it if you hit memory pressure.",
+                file=sys.stderr,
             )
-            video, srt = result.video, result.srt
-        videos.append(video)
-        srts.append(srt)
+        print(f"Processing {len(todo)} clip(s) with {workers} workers...")
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            futures = {
+                pool.submit(_process_clip_task, src, out_dir, name, kwargs): (i, name)
+                for i, src, name in todo
+            }
+            for fut in as_completed(futures):
+                i, name = futures[fut]
+                videos[i], srts[i] = fut.result()
+                print(f"  done {name}")
+    else:
+        for i, src, name in todo:
+            print(f"[{i + 1}/{len(clips)}] {src.name} -> {name}")
+            videos[i], srts[i] = _process_clip_task(src, out_dir, name, kwargs)
 
     # Merge in order: clip i starts at the cumulative duration of its predecessors.
     offsets: list[float] = []
@@ -161,12 +197,21 @@ def _build_parser() -> argparse.ArgumentParser:
         help='Silence-cut padding around speech (default: 0.2s)',
     )
     parser.add_argument("--edit", default="audio", help="auto-editor edit expr")
-    parser.add_argument("--language", default="zh", help="Whisper language code")
+    parser.add_argument(
+        "--language", default="zh",
+        help="Whisper language code, or 'auto' to detect (default: zh)",
+    )
     parser.add_argument("--model", default=DEFAULT_MODEL, help="faster-whisper model")
     parser.add_argument(
-        "--max-chars", type=int, default=20,
-        help="Split subtitle cues longer than this many chars (0 to disable; "
-             "default: 20, tuned for Mandarin)",
+        "--max-chars", type=int, default=-1,
+        help="Split subtitle cues longer than this many chars (default: -1 = auto "
+             "by language: 20 for Chinese, 42 for spaced languages; 0 disables)",
+    )
+    parser.add_argument(
+        "-j", "--jobs", type=int, default=1,
+        help="Process this many clips in parallel (default: 1). Speeds up large "
+             "folders ~1.4x; each worker loads its own ~1.5 GB model, so keep it "
+             "modest on low-RAM machines.",
     )
     return parser
 
@@ -189,6 +234,7 @@ def main(argv: list[str] | None = None) -> int:
             clips, out_dir,
             speed=args.speed, margin=args.margin, edit_expression=args.edit,
             language=args.language, model=args.model, max_chars=args.max_chars,
+            jobs=args.jobs,
         )
     except subprocess.CalledProcessError as e:
         print(f"failed ({e.cmd[0]} exited {e.returncode})", file=sys.stderr)

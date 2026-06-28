@@ -15,6 +15,26 @@ from pathlib import Path
 # for short-form subtitles; pass --model large-v3 when you want maximum accuracy.
 DEFAULT_MODEL = "large-v3-turbo"
 
+# Languages written without spaces between words: subtitles for these wrap by
+# character; everything else wraps on word boundaries. Used to pick how long
+# cues get split (see srt.split_cue).
+SPACELESS_LANGS = {"zh", "yue", "ja", "th", "lo", "my", "km"}
+
+
+def _whisper_language(language: str | None) -> str | None:
+    """Map our language option to what faster-whisper wants.
+
+    "auto" (or empty) -> None, which tells Whisper to auto-detect the language.
+    """
+    if not language or language.lower() == "auto":
+        return None
+    return language
+
+
+def is_space_delimited(language: str | None) -> bool:
+    """True if `language` writes words with spaces (so subtitles wrap on words)."""
+    return bool(language) and language.lower() not in SPACELESS_LANGS
+
 
 def _pick_runtime(device: str, compute_type: str) -> tuple[str, str]:
     """Resolve "auto" device/compute_type to concrete values.
@@ -69,7 +89,8 @@ def transcribe_segments(
     device, compute_type = _pick_runtime(device, compute_type)
     whisper = _load_model(model, device, compute_type)
     segments, _info = whisper.transcribe(
-        str(src), language=language, word_timestamps=word_timestamps
+        str(src), language=_whisper_language(language),
+        word_timestamps=word_timestamps,
     )
     out: list[dict] = []
     for seg in segments:
@@ -90,17 +111,19 @@ def transcribe_to_srt(
     language: str = "zh",
     model: str = DEFAULT_MODEL,
     output_name: str | None = None,
-    max_chars: int = 0,
+    max_chars: int = -1,
     device: str = "auto",
     compute_type: str = "auto",
 ) -> Path:
     """Transcribe `src` and write an .srt into `out_dir`.
 
-    The output filename is `<output_name>.srt` (default: input stem). When
-    `max_chars` > 0, cues longer than that are split at punctuation (see
-    `srt.split_cue`) so burned subtitles stay short; 0 keeps Whisper's segments
-    as-is. `device` and `compute_type` accept "auto" (detect GPU, else int8 CPU)
-    or any value faster-whisper understands ("cpu"/"cuda", "int8"/"float16"/...).
+    The output filename is `<output_name>.srt` (default: input stem). `language`
+    accepts a Whisper code or "auto" (detect). `max_chars` caps cue length so
+    burned subtitles stay short: ``-1`` (default) picks a sensible cap by
+    language (20 for spaceless scripts like Chinese, 42 for spaced ones like
+    English) and wraps accordingly; ``0`` keeps Whisper's segments as-is; a
+    positive value forces that cap. `device`/`compute_type` accept "auto" or any
+    value faster-whisper understands.
     """
     from video_prep.srt import split_cue
 
@@ -111,7 +134,13 @@ def transcribe_to_srt(
 
     device, compute_type = _pick_runtime(device, compute_type)
     whisper = _load_model(model, device, compute_type)
-    segments, _info = whisper.transcribe(str(src), language=language)
+    segments, info = whisper.transcribe(str(src), language=_whisper_language(language))
+
+    # Resolve language (Whisper detects it when "auto") to choose wrapping style.
+    detected = _whisper_language(language) or getattr(info, "language", None) or "en"
+    spaced = is_space_delimited(detected)
+    if max_chars < 0:
+        max_chars = 42 if spaced else 20
 
     cues: list[tuple[int, int, str]] = []
     for seg in segments:
@@ -121,7 +150,8 @@ def transcribe_to_srt(
         start_ms = max(0, round(seg.start * 1000))
         end_ms = max(0, round(seg.end * 1000))
         if max_chars > 0:
-            cues.extend(split_cue(start_ms, end_ms, text, max_chars))
+            cues.extend(split_cue(start_ms, end_ms, text, max_chars,
+                                  space_delimited=spaced))
         else:
             cues.append((start_ms, end_ms, text))
 

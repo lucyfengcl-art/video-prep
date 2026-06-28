@@ -29,7 +29,7 @@ def process_clip(
     edit_expression: str = "audio",
     language: str = "zh",
     model: str = DEFAULT_MODEL,
-    max_chars: int = 20,
+    max_chars: int = -1,
     keep_intermediates: bool = False,
 ) -> ProcessResult:
     """Run the full pipeline on one clip.
@@ -39,7 +39,7 @@ def process_clip(
     best subtitle accuracy; rescaling at the end keeps subs in sync.
 
     `out_name` overrides the output basename (default: the input stem).
-    `max_chars` caps subtitle cue length (split at punctuation); 0 disables it.
+    `max_chars` caps subtitle cue length: -1 auto (by language), 0 disables.
     """
     src = Path(src)
     out_dir = Path(out_dir)
@@ -79,7 +79,7 @@ def process_combined(
     edit_expression: str = "audio",
     language: str = "zh",
     model: str = DEFAULT_MODEL,
-    max_chars: int = 20,
+    max_chars: int = -1,
     keep_intermediates: bool = False,
 ) -> ProcessResult:
     """Concatenate `sources` in given order, then run the full pipeline once.
@@ -87,7 +87,7 @@ def process_combined(
     Concat happens before silence-cutting, so pauses between clips (e.g. you
     repositioning the phone) also get trimmed. Single transcription pass over
     the whole video yields one .srt naturally aligned to the final output.
-    `max_chars` caps subtitle cue length (split at punctuation); 0 disables it.
+    `max_chars` caps subtitle cue length: -1 auto (by language), 0 disables.
     """
     if not sources:
         raise ValueError("no source clips provided")

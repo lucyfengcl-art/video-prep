@@ -105,7 +105,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--language",
         default="zh",
-        help="Whisper language code (default: zh)",
+        help="Whisper language code, or 'auto' to detect (default: zh)",
     )
     parser.add_argument(
         "--model",
@@ -115,9 +115,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-chars",
         type=int,
-        default=20,
-        help="Split subtitle cues longer than this many chars (0 to disable; "
-             "default: 20, tuned for Mandarin)",
+        default=-1,
+        help="Split subtitle cues longer than this many chars (default: -1 = auto "
+             "by language: 20 for Chinese, 42 for spaced languages; 0 disables)",
     )
     parser.add_argument(
         "--keep-intermediates",

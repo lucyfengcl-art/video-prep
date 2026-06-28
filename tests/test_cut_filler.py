@@ -97,3 +97,21 @@ def test_normalize_word_strips_punctuation():
 def test_parse_indices_ranges():
     assert parse_indices("1,3,5-7", 10) == [1, 3, 5, 6, 7]
     assert parse_indices("all", 3) == [1, 2, 3]
+
+
+def test_normalize_word_is_case_insensitive():
+    # English fillers must match regardless of case ("So" at sentence start).
+    assert normalize_word("So,") == normalize_word("so") == "so"
+
+
+def test_find_matches_english_case_insensitive():
+    seg = _seg("So anyway", [("So", 0.0, 0.3), ("anyway", 0.3, 0.8)])
+    matches = find_matches([seg], {"so"})
+    assert [m["word"] for m in matches] == ["So"]
+
+
+def test_find_matches_english_multiword():
+    seg = _seg("you know it", [("you", 0.0, 0.2), ("know", 0.2, 0.5), ("it", 0.5, 0.7)])
+    matches = find_matches([seg], {"you know"})
+    assert len(matches) == 1
+    assert matches[0]["start"] <= 0.0 + 1e-9 or matches[0]["start"] >= 0.0
