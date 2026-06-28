@@ -296,9 +296,9 @@ Two options:
   installer at this repo and it picks up `skills/prep-clips/SKILL.md` (the
   invocation is platform-neutral, so it works without Claude Code).
 - **Install the CLI** — `uv tool install git+https://github.com/lucyfengcl-art/video-prep`
-  puts `video-prep-edit` on `PATH`; the repo's [`AGENTS.md`](AGENTS.md) tells the
-  agent when and how to run it (copy it, or its relevant lines, into the project
-  where you keep your clips).
+  puts `video-prep-edit` on `PATH`. The repo's [`AGENTS.md`](AGENTS.md) is a short
+  pointer to the skill; drop it into the project where you keep your clips so an
+  `AGENTS.md`-aware agent knows the tool exists and reads the skill for details.
 
 Either way, then ask the agent to *"edit my raw clips"*.
 

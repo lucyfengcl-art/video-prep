@@ -45,8 +45,8 @@
 - **安装技能** —— Codex 也能读同一个 `prep-clips` 技能。让它的 skill 安装器指向本仓库，
   就会装上 `skills/prep-clips/SKILL.md`（调用方式与平台无关，不依赖 Claude Code）。
 - **安装命令行工具** —— `uv tool install git+https://github.com/lucyfengcl-art/video-prep`
-  把 `video-prep-edit` 装到 `PATH`；仓库里的 [`AGENTS.md`](AGENTS.md) 会告诉 Agent
-  什么时候、怎么调用它。
+  把 `video-prep-edit` 装到 `PATH`。仓库里的 [`AGENTS.md`](AGENTS.md) 是一个指向技能的简短入口，
+  把它放进你存素材的项目里，支持 `AGENTS.md` 的 Agent 就知道有这个工具、并去读技能了解细节。
 
 之后直接对它说**"清理我的素材"**即可。
 
