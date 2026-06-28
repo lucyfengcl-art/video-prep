@@ -38,15 +38,17 @@
 它就会跑整套清理流程。插件自带 Python 工具并通过 `uv` 运行，在任意文件夹都能用，
 除了 `uv` + `ffmpeg` 不需要额外安装步骤。
 
-### 在 Codex 或其他命令行 Agent 里用
+### 在 Codex 或其他支持技能的 Agent 里用
 
-Codex 没有插件系统，先把命令行工具装一次：
+两种方式：
 
-```sh
-uv tool install git+https://github.com/lucyfengcl-art/video-prep
-```
+- **安装技能** —— Codex 也能读同一个 `prep-clips` 技能。让它的 skill 安装器指向本仓库，
+  就会装上 `skills/prep-clips/SKILL.md`（调用方式与平台无关，不依赖 Claude Code）。
+- **安装命令行工具** —— `uv tool install git+https://github.com/lucyfengcl-art/video-prep`
+  把 `video-prep-edit` 装到 `PATH`；仓库里的 [`AGENTS.md`](AGENTS.md) 会告诉 Agent
+  什么时候、怎么调用它。
 
-仓库里的 [`AGENTS.md`](AGENTS.md) 会告诉 Codex 什么时候、怎么调用 `video-prep-edit`。
+之后直接对它说**"清理我的素材"**即可。
 
 ## 一条命令搞定
 
@@ -65,6 +67,10 @@ video-prep-edit ./raw
 
 重复运行会复用同一个日期文件夹，只重新处理改动过的素材。
 如果没装 `ffmpeg-full`，依然会生成清理后的素材和 `.srt`，只是跳过烧字幕的预览。
+
+常用参数：`--language en`（或任意 Whisper 语言代码 / `auto` 自动识别，字幕换行会自动适配）、
+`-j 3`（多核并行处理多段素材，约快 1.4 倍）、`--speed 1.3`（调整倍速，默认 1.1）。
+素材很多时用一条命令跑完即可，**不要自己分批或两两合并**——工具会一次性剪辑、转写、归一化并拼接。
 
 ## 常用后续操作
 

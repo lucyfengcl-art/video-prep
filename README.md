@@ -21,8 +21,9 @@ For each clip, in order:
    defaults to Mandarin (`--language
    zh`, override with `--language`). Runs on CPU anywhere, or a CUDA GPU
    automatically if one is present.
-3. **Speed up** to 1.2x with `ffmpeg` (`setpts` + `atempo`, preserves pitch)
-4. **Rescale** the `.srt` timestamps by `1 / 1.2` so subtitles stay in sync
+3. **Speed up** to 1.1x with `ffmpeg` (`setpts` + `atempo`, preserves pitch), and
+   normalize to a constant frame rate with audio locked to the video length
+4. **Rescale** the `.srt` timestamps by `1 / 1.1` so subtitles stay in sync
 
 ## One-command edit (recommended)
 
@@ -155,11 +156,11 @@ touch-ups.
 3. First run will download the Whisper model — be patient
 4. Open `out/test.processed.mp4` in QuickPlayer:
    - Silent gaps should be removed
-   - Audio plays at ~1.2x, pitch unchanged (no chipmunk voice)
+   - Audio plays at ~1.1x, pitch unchanged (no chipmunk voice)
 5. Open `out/test.srt` — check the Chinese transcription
 6. Drop both into a fresh CapCut project — **the key check**: subtitles should
    stay aligned with audio after the speed change. If they drift, the
-   timestamp rescaling has a bug (off-by-1.2x).
+   timestamp rescaling has a bug (off by the speed factor).
 
 ## Cutting filler words (然后, 就是 … / um, uh …)
 
@@ -204,9 +205,10 @@ the total runtime. Visual jump cuts are tiny and read as normal Rednote pacing.
 ## Burning subtitles into the video for preview
 
 `video-prep-burn` renders `.srt` text onto the video so you can preview the
-pacing without opening CapCut. Defaults: **Noto Sans CJK SC Bold** (the
-open-source equivalent of CapCut's 思源黑体), size 18, no outline, sitting
-near the bottom edge of the frame.
+pacing without opening CapCut. Defaults: **Noto Sans CJK SC Medium** (the
+open-source equivalent of CapCut's 思源黑体), size 12, no outline, sitting
+near the bottom edge of the frame (raise `--font-size` / `--margin-v` for a
+bolder, higher caption).
 
 ```sh
 # defaults (looks for <stem>.srt next to the video, writes <stem>.subbed.mp4)
@@ -286,17 +288,19 @@ The plugin bundles the Python tool and runs it through `uv` via a self-locating
 launcher, so it works from any folder — no separate install step beyond `uv` +
 `ffmpeg`.
 
-### Codex (or any other shell-driven agent)
+### Codex (or any other skill-aware / shell-driven agent)
 
-Codex has no plugin system, so install the CLI once and let the agent call it:
+Two options:
 
-```sh
-uv tool install git+https://github.com/lucyfengcl-art/video-prep
-```
+- **Install the skill** — Codex reads the same `prep-clips` skill. Point its skill
+  installer at this repo and it picks up `skills/prep-clips/SKILL.md` (the
+  invocation is platform-neutral, so it works without Claude Code).
+- **Install the CLI** — `uv tool install git+https://github.com/lucyfengcl-art/video-prep`
+  puts `video-prep-edit` on `PATH`; the repo's [`AGENTS.md`](AGENTS.md) tells the
+  agent when and how to run it (copy it, or its relevant lines, into the project
+  where you keep your clips).
 
-The repo's [`AGENTS.md`](AGENTS.md) tells Codex when and how to run
-`video-prep-edit`. Copy it (or its relevant lines) into the project where you keep
-your clips, then ask the agent to *"edit my raw clips"*.
+Either way, then ask the agent to *"edit my raw clips"*.
 
 ## Customize and extend
 
@@ -336,7 +340,9 @@ so give yours its own name (e.g. `/my-edit`); it won't clash.
 uv run pytest
 ```
 
-Unit tests cover the SRT timestamp scaler, the per-clip SRT concatenation
-(`concat_srts`), and the filler-word matcher (multi-character Mandarin words like
-于是) + post-cut SRT rebuild — the pieces with non-obvious math where a bug would
-silently desync subtitles.
+Unit tests cover the pieces with non-obvious logic where a bug would silently
+desync subtitles or reorder clips: the SRT timestamp scaler, per-clip SRT
+concatenation (`concat_srts`), natural-order sorting, cue splitting (character
+wrap for Chinese, word wrap for English), the per-language filler defaults, the
+filler-word matcher (case-insensitive, multi-token words like 于是) + post-cut SRT
+rebuild, and CLI flag parsing.
