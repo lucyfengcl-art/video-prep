@@ -92,11 +92,27 @@ it up (see [Install](#install)), it can install these for you too.
 
 ## Install
 
-> **Easiest: let your coding agent do it.** If you already use Claude Code or
-> Codex, just tell it: *"install the video-prep skill from
-> github.com/lucyfengcl-art/video-prep"* — the agent runs the right steps for its
-> platform (plugin install for Claude Code, skill install or `uv tool install`
-> for Codex). The manual commands are below if you'd rather do it yourself.
+### Quick start — pick the line that matches you
+
+- **I use Claude Code** → paste these two lines into it:
+  ```
+  /plugin marketplace add lucyfengcl-art/video-prep
+  /plugin install video-prep
+  ```
+  Then just say *"clean up my raw clips."*
+- **I use Codex (or another shell agent)** → tell it: *"install the video-prep
+  skill from github.com/lucyfengcl-art/video-prep and prep my clips."* It runs
+  the install (`uv tool install …`) itself.
+- **I don't have either yet** → install [Claude Code](https://claude.com/claude-code)
+  (or [Codex](https://developers.openai.com/codex/cli/)) first, then follow the
+  matching line above. It's a coding assistant in your terminal; once it's set up,
+  the two lines above are all you need.
+
+> Heads-up for Claude Code: the agent can't type `/plugin` commands for you — it'll
+> hand them back for you to paste (a 10-second step). Codex installs without that.
+
+Everything below is the manual / advanced path if you'd rather drive the CLI
+yourself.
 
 Install the CLI globally straight from GitHub — works on any machine, no clone:
 
