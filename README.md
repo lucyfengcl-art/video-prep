@@ -9,6 +9,27 @@ normalize speed. Outputs a clean
 Premiere, DaVinci, …) for the actual arrangement, transitions, and touch-ups.
 It's the pre-processing, not the creative edit.
 
+## What it's for
+
+`video-prep` is built for **talking-head video** — footage you record straight
+into the camera: Rednote / TikTok / Bilibili / YouTube clips, vlogs, tutorials,
+course lessons, podcast recordings, product walkthroughs. If your routine is
+*"shoot a pile of takes on my phone, then waste an hour topping-and-tailing
+them,"* this does that hour for you.
+
+It automates the repetitive cleanup every one of those edits needs:
+
+- ✂️ **Cut the dead air** — silent gaps and long pauses removed
+- 💬 **Subtitles** auto-transcribed in any language (Mandarin by default), in sync
+- ⏩ **Tighten the pace** with a subtle speed-up (pitch preserved — no chipmunk voice)
+- 🔗 **Stitch many clips** into one finished video, in order, subtitles burned in
+- 🗣️ **Trim filler words** (然后, um, uh…) — it suggests, you choose what to cut
+
+What it's **not**: the creative edit. Transitions, music, b-roll, color, and the
+final arrangement stay in your editor (CapCut / 剪映, Premiere, DaVinci…). This
+hands you clean, subtitled, ready-to-arrange clips so you can skip the boring part
+and go straight to the fun part.
+
 ## How it works
 
 For each clip, in order:
@@ -55,6 +76,11 @@ The sections below cover the lower-level commands (`video-prep`, `-burn`,
 [`BLOCKS.md`](BLOCKS.md).
 
 ## Requirements
+
+You don't install Python packages by hand — `uv` and the plugin handle that. The
+only things the machine needs up front are `uv` and `ffmpeg` (plus `ffmpeg-full`
+if you want subtitles burned into the preview). If you let your coding agent set
+it up (see [Install](#install)), it can install these for you too.
 
 - macOS, Windows, or Linux (Intel or ARM) — transcription runs on CPU via
   `faster-whisper`, or a CUDA GPU automatically if present
