@@ -1,7 +1,7 @@
 ---
 name: prep-clips
 description: Runs the tedious cleanup pass on raw video recordings before the real edit — cut silent gaps, transcribe subtitles in any language (Mandarin by default), normalize speed, and stitch clips in natural numeric order. Use when the user drops recordings into a raw/ folder or asks to "clean up", "prep", or "edit" their clips. Outputs clean per-clip mp4 + .srt (plus an optional merged, subtitle-burned preview) ready to drop into any editor (CapCut, Premiere, DaVinci, …). This is pre-processing, not the creative edit.
-version: 1.1.2
+version: 1.2.0
 ---
 
 # Prep raw clips for editing
@@ -24,6 +24,51 @@ they say things like "clean up my clips", "prep my footage", "cut the silence an
 subtitle these", or simply "do the edit" / "edit my videos". If what they actually
 want is creative arrangement or transitions, that's outside this skill; this only
 prepares the raw material.
+
+## First contact — introduce the skill before doing anything
+
+If the user invokes this skill **without a concrete task** — a bare
+`/prep-clips`, a greeting, "what can this do?", "how do I use this?", or anything
+that shows they just installed it and are exploring — **do not silently wait for
+clips or start asking for a folder.** First give a short capability intro so they
+know what's on offer and how to trigger each part. Use roughly this template
+(keep it tight; adapt the language to the user):
+
+> **Video Prep** does the boring cleanup pass on raw recordings so they're ready
+> to edit — in one command. Here's what I can do and how to ask:
+>
+> 1. **Prep a folder of clips** (the main one) — cut silent gaps, add subtitles,
+>    normalize speed, and stitch clips in order.
+>    → *"Prep the clips in ./raw"* or *"clean up my footage in English"*
+> 2. **Subtitles in any language** — Mandarin by default; say the language.
+>    → *"…and subtitle them in English"* / *"detect the language automatically"*
+> 3. **Suggest & remove filler words** (然后, 就是… / um, uh, you know…) — I list
+>    matches with context and cut **only** the ones you pick.
+>    → *"find the filler words"* / *"cut the ums"*
+> 4. **Burn / restyle subtitles** onto a preview video.
+>    → *"burn the subtitles bigger"* / *"restyle the captions"*
+>
+> Drop your recordings into a `raw/` folder and tell me which of these you want.
+> To just get going: *"prep my clips in ./raw"*.
+
+Then wait for their choice. Only skip this intro when the user's first message is
+already an actionable request (they named a folder, a language, or a specific
+capability) — in that case go straight to the matching section below. When you do
+run a capability, briefly mention the *other* things the skill can do afterward so
+they discover the full toolkit over time.
+
+## What you can ask for (capability → how to invoke)
+
+Quick map from what a user wants to the section that handles it:
+
+| The user wants… | Trigger phrases | Go to |
+| --- | --- | --- |
+| The full cleanup pass on a folder | "prep / clean up / edit my clips", "do the edit" | **Steps** |
+| Subtitles in a specific language | "in English", "in Japanese", "auto-detect the language" | **Steps** (step 2) |
+| A big batch (10+ clips) done fast | "I have 20 clips", "this is a lot of footage" | **Handling many clips** |
+| Filler words gone | "cut the ums", "remove 然后/就是", "clean up my speech" | **Common follow-ups** |
+| Different-looking captions | "bigger subtitles", "restyle the captions", "move them up" | **Common follow-ups** |
+| To build a bigger workflow on top | "add transitions too", "make my own edit flow" | **Extending this** |
 
 ## How to invoke the tool
 
