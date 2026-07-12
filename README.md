@@ -322,9 +322,9 @@ You can drive the whole edit by just saying *"edit my raw clips"* — the agent 
 
 ### Claude Code (skill + plugin)
 
-This repo ships a **`prep-clips` skill** and packages itself as a **Claude Code
+This repo ships a **`video-prep` skill** and packages itself as a **Claude Code
 plugin**, so you can say *"clean up my raw clips"* (or invoke
-`/video-prep:prep-clips`) and Claude runs the cleanup pass. Install the plugin
+`/video-prep`) and Claude runs the cleanup pass. Install the plugin
 from GitHub:
 
 ```
@@ -340,8 +340,8 @@ launcher, so it works from any folder — no separate install step beyond `uv` +
 
 Two options:
 
-- **Install the skill** — Codex reads the same `prep-clips` skill. Point its skill
-  installer at this repo and it picks up `skills/prep-clips/SKILL.md` (the
+- **Install the skill** — Codex reads the same `video-prep` skill. Point its skill
+  installer at this repo and it picks up `skills/video-prep/SKILL.md` (the
   invocation is platform-neutral, so it works without Claude Code).
 - **Install the CLI** — `uv tool install git+https://github.com/lucyfengcl-art/video-prep`
   puts `video-prep-edit` on `PATH`. The repo's [`AGENTS.md`](AGENTS.md) is a short
@@ -375,7 +375,7 @@ just tell the agent (or type them yourself):
 skill in your **own** `~/.claude/skills/` (or a project's `.claude/skills/`) that
 calls `video-prep-edit` — or the smaller building blocks in [`BLOCKS.md`](BLOCKS.md)
 — and layers your editing steps on the cleaned output. It lives in your space, so
-plugin updates never touch it. Plugin skills are namespaced (`video-prep:prep-clips`),
+plugin updates never touch it. Plugin skills are namespaced (`video-prep:video-prep`),
 so give yours its own name (e.g. `/my-edit`); it won't clash.
 
 **3. Fork it.** To change the core behavior and keep it, fork the repo and install

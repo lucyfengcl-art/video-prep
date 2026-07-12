@@ -1,7 +1,7 @@
 ---
-name: prep-clips
+name: video-prep
 description: Runs the tedious cleanup pass on raw video recordings before the real edit — cut silent gaps, transcribe subtitles in any language (Mandarin by default), normalize speed, and stitch clips in natural numeric order. Use when the user drops recordings into a raw/ folder or asks to "clean up", "prep", or "edit" their clips. Outputs clean per-clip mp4 + .srt (plus an optional merged, subtitle-burned preview) ready to drop into any editor (CapCut, Premiere, DaVinci, …). This is pre-processing, not the creative edit.
-version: 1.2.1
+version: 2.0.0
 ---
 
 # Prep raw clips for editing
@@ -28,7 +28,7 @@ prepares the raw material.
 ## First contact — introduce the skill before doing anything
 
 If the user invokes this skill **without a concrete task** — a bare
-`/prep-clips`, a greeting, "what can this do?", "how do I use this?", or anything
+`/video-prep`, a greeting, "what can this do?", "how do I use this?", or anything
 that shows they just installed it and are exploring — **do not silently wait for
 clips or start asking for a folder.** First give a short capability intro so they
 know what's on offer and how to trigger each part.

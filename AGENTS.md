@@ -1,6 +1,6 @@
 # video-prep
 
-This repo provides the **`prep-clips` skill** and the **`video-prep-edit` CLI**
+This repo provides the **`video-prep` skill** and the **`video-prep-edit` CLI**
 for prepping raw video clips before the real edit: cut silent gaps, transcribe
 subtitles (any language, Mandarin by default), normalize speed, and stitch clips
 in natural numeric order — outputting clean per-clip `.mp4` + `.srt` plus an
@@ -16,7 +16,7 @@ video-prep-edit ./raw -j 3       # parallelize many clips on a multi-core CPU
 
 Full, authoritative guidance lives in the skill — read it before running:
 
-- **Skill (source of truth):** [`skills/prep-clips/SKILL.md`](skills/prep-clips/SKILL.md)
+- **Skill (source of truth):** [`skills/video-prep/SKILL.md`](skills/video-prep/SKILL.md)
 - **CLI install:** `uv tool install git+https://github.com/lucyfengcl-art/video-prep`
 - **Human docs:** [`README.md`](README.md) · [`BLOCKS.md`](BLOCKS.md) (lower-level building blocks)
 

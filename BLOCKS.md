@@ -1,6 +1,6 @@
 # Building blocks
 
-The video-prep pipeline is a set of small, single-purpose pieces. The `/prep-clips`
+The video-prep pipeline is a set of small, single-purpose pieces. The `/video-prep`
 skill just composes them in the common order. Use this catalog to wire them into a
 **different** workflow — your own skill, a script, or by hand — without changing the
 core. Each block is both a CLI command and an importable Python function.

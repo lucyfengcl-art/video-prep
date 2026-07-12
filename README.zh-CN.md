@@ -77,7 +77,7 @@ vlog、教程、网课、播客录音、产品讲解……只要你是"手机/�
 /plugin install video-prep
 ```
 
-装好后，直接对它说**"清理我的素材"**（或调用 `/video-prep:prep-clips`），
+装好后，直接对它说**"清理我的素材"**（或调用 `/video-prep`），
 它就会跑整套清理流程。插件自带 Python 工具并通过 `uv` 运行，在任意文件夹都能用，
 除了 `uv` + `ffmpeg` 不需要额外安装步骤。
 
@@ -85,8 +85,8 @@ vlog、教程、网课、播客录音、产品讲解……只要你是"手机/�
 
 两种方式：
 
-- **安装技能** —— Codex 也能读同一个 `prep-clips` 技能。让它的 skill 安装器指向本仓库，
-  就会装上 `skills/prep-clips/SKILL.md`（调用方式与平台无关，不依赖 Claude Code）。
+- **安装技能** —— Codex 也能读同一个 `video-prep` 技能。让它的 skill 安装器指向本仓库，
+  就会装上 `skills/video-prep/SKILL.md`（调用方式与平台无关，不依赖 Claude Code）。
 - **安装命令行工具** —— `uv tool install git+https://github.com/lucyfengcl-art/video-prep`
   把 `video-prep-edit` 装到 `PATH`。仓库里的 [`AGENTS.md`](AGENTS.md) 是一个指向技能的简短入口，
   把它放进你存素材的项目里，支持 `AGENTS.md` 的 Agent 就知道有这个工具、并去读技能了解细节。

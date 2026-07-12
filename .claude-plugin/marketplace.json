@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "video-prep",
-      "description": "Clean up raw video clips before editing — cut silence, subtitles in any language (Mandarin default), normalize speed, stitch in order — with a /prep-clips skill plus filler-word removal and subtitle burning.",
+      "description": "Clean up raw video clips before editing — cut silence, subtitles in any language (Mandarin default), normalize speed, stitch in order — with a /video-prep skill plus filler-word removal and subtitle burning.",
       "author": {
         "name": "lucyfengcl"
       },
