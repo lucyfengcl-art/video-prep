@@ -1,7 +1,7 @@
 ---
 name: prep-clips
 description: Runs the tedious cleanup pass on raw video recordings before the real edit — cut silent gaps, transcribe subtitles in any language (Mandarin by default), normalize speed, and stitch clips in natural numeric order. Use when the user drops recordings into a raw/ folder or asks to "clean up", "prep", or "edit" their clips. Outputs clean per-clip mp4 + .srt (plus an optional merged, subtitle-burned preview) ready to drop into any editor (CapCut, Premiere, DaVinci, …). This is pre-processing, not the creative edit.
-version: 1.2.0
+version: 1.2.1
 ---
 
 # Prep raw clips for editing
@@ -31,8 +31,14 @@ If the user invokes this skill **without a concrete task** — a bare
 `/prep-clips`, a greeting, "what can this do?", "how do I use this?", or anything
 that shows they just installed it and are exploring — **do not silently wait for
 clips or start asking for a folder.** First give a short capability intro so they
-know what's on offer and how to trigger each part. Use roughly this template
-(keep it tight; adapt the language to the user):
+know what's on offer and how to trigger each part.
+
+**Answer in the user's language.** Match whatever language they wrote in — if they
+message in Chinese, give the whole intro (and the example prompts) in Chinese; if
+in English, English; and so on. The template below is written in English only as a
+reference for *what to say* — translate it, don't echo it verbatim. Keep the
+`./raw` folder name and CLI flags as-is, but everything a human reads should be in
+their language. Use roughly this template (keep it tight):
 
 > **Video Prep** does the boring cleanup pass on raw recordings so they're ready
 > to edit — in one command. Here's what I can do and how to ask:
