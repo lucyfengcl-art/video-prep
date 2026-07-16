@@ -82,24 +82,43 @@ def _iter_blocks(text: str):
 
 
 def concat_srts(
-    srts: list[Path], offsets: list[float], out_path: Path
+    srts: list[Path], offsets: list[float], out_path: Path,
+    *, durations: list[float] | None = None,
 ) -> Path:
     """Merge per-clip SRTs into one, shifting clip i by offsets[i] seconds.
 
     `offsets[i]` is the start time of clip i on the merged timeline (i.e. the
     cumulative duration of the preceding clips). Cues are renumbered 1..N. This
     lets us build a combined .srt from already-transcribed per-clip subtitles
-    without a second transcription pass.
+    without a second transcription pass. When ``durations`` is provided, every
+    cue is clipped to its source clip before shifting, so malformed Whisper
+    timestamps can never spill into the next clip.
     """
     if len(srts) != len(offsets):
         raise ValueError("srts and offsets must be the same length")
+    if durations is not None and len(srts) != len(durations):
+        raise ValueError("srts and durations must be the same length")
 
     out_lines: list[str] = []
     idx = 1
-    for srt, offset in zip(srts, offsets):
+    limits = durations if durations is not None else [None] * len(srts)
+    for srt, offset, duration in zip(srts, offsets, limits):
         delta_ms = round(offset * 1000)
         text = Path(srt).read_text(encoding="utf-8")
         for time_line, body in _iter_blocks(text):
+            if duration is not None:
+                matches = list(TIMESTAMP_RE.finditer(time_line))
+                if len(matches) != 2:
+                    continue
+                start_ms = _ts_to_ms(*matches[0].groups())
+                end_ms = _ts_to_ms(*matches[1].groups())
+                limit_ms = round(duration * 1000)
+                if start_ms >= limit_ms:
+                    continue
+                end_ms = min(end_ms, limit_ms)
+                if end_ms <= start_ms:
+                    continue
+                time_line = f"{_ms_to_ts(start_ms)} --> {_ms_to_ts(end_ms)}"
             shifted = TIMESTAMP_RE.sub(
                 lambda m: _shift_timestamp(m.group(0), delta_ms), time_line
             )

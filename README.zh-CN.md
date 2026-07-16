@@ -105,10 +105,13 @@ video-prep-edit ./raw
 结果都写进 `out/<当天日期>/`：
 
 - `NN.processed.mp4` + `NN.srt` —— 每段素材清理后的版本（**主要交付物**，拖进剪辑软件用这些）
+- `NN.subtitle-warnings.json` —— 仅在字幕被自动修正或发现可疑内容时生成，列出需要复核的时间点
 - `final.mp4` + `final.srt` —— 按顺序拼好的整段（如果你只想要一个文件）
 - `final.subbed.mp4` —— 烧好字幕的合并版，**可选预览**，用来看节奏或直接分享
 
-重复运行会复用同一个日期文件夹，只重新处理改动过的素材。
+字幕会先经过 VAD、结尾幻觉检测和素材时长边界校验；合并时每段字幕也会被限制在对应素材范围内，
+不会再越界覆盖下一段。重复运行会复用同一个日期文件夹；修改素材、语言、模型、倍速或转写参数后，
+缓存会自动失效并只重做受影响的部分。
 如果没装 `ffmpeg-full`，依然会生成清理后的素材和 `.srt`，只是跳过烧字幕的预览。
 
 常用参数：`--language en`（或任意 Whisper 语言代码 / `auto` 自动识别，字幕换行会自动适配）、
@@ -130,6 +133,10 @@ video-prep-edit ./raw
   ```sh
   video-prep-burn out/<日期>/final.mp4 --srt out/<日期>/final.srt \
       --font-size 18 --outline 2 --margin-v 100
+
+  # 11 号粗体，字幕基线在画面 3/4 高度，仅第 2 段素材带黑底
+  video-prep-edit ./raw --subtitle-font-size 11 --subtitle-bold \
+      --subtitle-y 0.75 --box-clips 2
   ```
 
 ## 想改成自己的流程？

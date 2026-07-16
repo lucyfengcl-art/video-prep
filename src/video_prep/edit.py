@@ -19,23 +19,61 @@ clip; the merge + burn are always rebuilt from the current pieces.
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import date
 from pathlib import Path
 
-from video_prep.burn import burn_subs
+from video_prep.burn import (
+    DEFAULT_FONT,
+    DEFAULT_FONT_SIZE,
+    DEFAULT_OUTLINE,
+    burn_subs,
+    subtitle_fraction,
+)
 from video_prep.cli import _expand_inputs
 from video_prep.concat import concat_clips
+from video_prep.media import probe_duration
 from video_prep.pipeline import process_clip
 from video_prep.srt import concat_srts
 from video_prep.transcribe import DEFAULT_MODEL
 
 
-def _is_fresh(out: Path, src: Path) -> bool:
-    """True if `out` exists and is at least as new as `src`."""
-    return out.exists() and out.stat().st_mtime >= src.stat().st_mtime
+PIPELINE_CACHE_VERSION = 2
+
+
+def _cache_payload(src: Path, options: dict) -> dict:
+    stat = src.stat()
+    return {
+        "schema": PIPELINE_CACHE_VERSION,
+        "source": {
+            "path": str(src.resolve()),
+            "size": stat.st_size,
+            "mtime_ns": stat.st_mtime_ns,
+        },
+        "options": options,
+    }
+
+
+def _cache_is_valid(
+    video: Path, srt: Path, metadata: Path, src: Path, options: dict,
+) -> bool:
+    if not video.exists() or not srt.exists() or not metadata.exists():
+        return False
+    try:
+        cached = json.loads(metadata.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return cached == _cache_payload(src, options)
+
+
+def _write_cache(metadata: Path, src: Path, options: dict) -> None:
+    metadata.write_text(
+        json.dumps(_cache_payload(src, options), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _process_clip_task(src: Path, out_dir: Path, name: str, kwargs: dict) -> tuple[Path, Path]:
@@ -49,20 +87,6 @@ def _process_clip_task(src: Path, out_dir: Path, name: str, kwargs: dict) -> tup
     return result.video, result.srt
 
 
-def probe_duration(path: Path) -> float:
-    """Return the duration of `path` in seconds via ffprobe."""
-    out = subprocess.run(
-        [
-            "ffprobe", "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=nokey=1:noprint_wrappers=1",
-            str(path),
-        ],
-        capture_output=True, text=True, check=True,
-    )
-    return float(out.stdout.strip())
-
-
 def edit(
     clips: list[Path],
     out_dir: Path,
@@ -74,6 +98,13 @@ def edit(
     model: str = DEFAULT_MODEL,
     max_chars: int = -1,
     jobs: int = 1,
+    subtitle_font: str = DEFAULT_FONT,
+    subtitle_font_size: int = DEFAULT_FONT_SIZE,
+    subtitle_outline: int = DEFAULT_OUTLINE,
+    subtitle_y: float | None = None,
+    subtitle_bold: bool = False,
+    subtitle_background: bool = False,
+    box_clips: set[int] | None = None,
 ) -> dict[str, Path]:
     """Process `clips`, merge them in order, and burn subtitles into out_dir.
 
@@ -99,7 +130,8 @@ def edit(
         name = str(i + 1).zfill(width)
         video = out_dir / f"{name}.processed.mp4"
         srt = out_dir / f"{name}.srt"
-        if _is_fresh(video, src) and _is_fresh(srt, src):
+        metadata = out_dir / f"{name}.cache.json"
+        if _cache_is_valid(video, srt, metadata, src, kwargs):
             print(f"[{i + 1}/{len(clips)}] {src.name} -> {name}  cached")
             videos[i], srts[i] = video, srt
         else:
@@ -122,31 +154,55 @@ def edit(
             for fut in as_completed(futures):
                 i, name = futures[fut]
                 videos[i], srts[i] = fut.result()
+                _write_cache(out_dir / f"{name}.cache.json", clips[i], kwargs)
                 print(f"  done {name}")
     else:
         for i, src, name in todo:
             print(f"[{i + 1}/{len(clips)}] {src.name} -> {name}")
             videos[i], srts[i] = _process_clip_task(src, out_dir, name, kwargs)
+            _write_cache(out_dir / f"{name}.cache.json", src, kwargs)
 
     # Merge in order: clip i starts at the cumulative duration of its predecessors.
     offsets: list[float] = []
+    durations: list[float] = []
     running = 0.0
     for v in videos:
+        duration = probe_duration(v)
         offsets.append(running)
-        running += probe_duration(v)
+        durations.append(duration)
+        running += duration
 
     final_video = out_dir / "final.mp4"
     final_srt = out_dir / "final.srt"
     print(f"\nMerging {len(videos)} clip(s) -> {final_video.name}")
     concat_clips(videos, final_video)
-    concat_srts(srts, offsets, final_srt)
+    concat_srts(srts, offsets, final_srt, durations=durations)
 
     outputs = {"video": final_video, "srt": final_srt}
 
     subbed = out_dir / "final.subbed.mp4"
     print(f"Burning subtitles -> {subbed.name}")
     try:
-        burn_subs(final_video, final_srt, subbed)
+        selected = box_clips or set()
+        invalid = sorted(i for i in selected if i < 1 or i > len(clips))
+        if invalid:
+            raise ValueError(
+                f"box clip numbers out of range 1..{len(clips)}: {invalid}"
+            )
+        box_ranges = [
+            (offsets[i - 1], offsets[i - 1] + durations[i - 1])
+            for i in sorted(selected)
+        ]
+        burn_subs(
+            final_video, final_srt, subbed,
+            font=subtitle_font,
+            font_size=subtitle_font_size,
+            outline=subtitle_outline,
+            subtitle_y=subtitle_y,
+            bold=subtitle_bold,
+            background=subtitle_background,
+            box_ranges=box_ranges,
+        )
         outputs["subbed"] = subbed
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(
@@ -166,6 +222,16 @@ def _resolve_out_dir(out_root: Path, name: str | None) -> Path:
     a re-run. Pass --name to keep separate edits made on the same day apart.
     """
     return out_root / (name or date.today().isoformat())
+
+
+def _clip_numbers(value: str) -> set[int]:
+    try:
+        numbers = {int(part.strip()) for part in value.split(",") if part.strip()}
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected comma-separated clip numbers") from exc
+    if not numbers or any(number < 1 for number in numbers):
+        raise argparse.ArgumentTypeError("clip numbers must be positive integers")
+    return numbers
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -213,6 +279,22 @@ def _build_parser() -> argparse.ArgumentParser:
              "folders ~1.4x; each worker loads its own ~1.5 GB model, so keep it "
              "modest on low-RAM machines.",
     )
+    parser.add_argument("--subtitle-font", default=DEFAULT_FONT)
+    parser.add_argument("--subtitle-font-size", type=int, default=DEFAULT_FONT_SIZE)
+    parser.add_argument("--subtitle-outline", type=int, default=DEFAULT_OUTLINE)
+    parser.add_argument(
+        "--subtitle-y", type=subtitle_fraction,
+        help="Subtitle baseline as a fraction from the top (for example 0.75)",
+    )
+    parser.add_argument("--subtitle-bold", action="store_true")
+    parser.add_argument(
+        "--subtitle-background", action="store_true",
+        help="Render every subtitle on an opaque black background",
+    )
+    parser.add_argument(
+        "--box-clips", type=_clip_numbers, default=set(), metavar="N[,N...]",
+        help="Apply a black subtitle background only during these source clips",
+    )
     return parser
 
 
@@ -226,6 +308,16 @@ def main(argv: list[str] | None = None) -> int:
     if not clips:
         print("error: no video files found in inputs", file=sys.stderr)
         return 2
+    invalid_box_clips = sorted(
+        number for number in args.box_clips if number > len(clips)
+    )
+    if invalid_box_clips:
+        print(
+            f"error: --box-clips values must be within 1..{len(clips)}: "
+            f"{invalid_box_clips}",
+            file=sys.stderr,
+        )
+        return 2
 
     out_dir = _resolve_out_dir(args.out, args.name)
     print(f"Editing {len(clips)} clip(s) -> {out_dir}/\n")
@@ -235,8 +327,18 @@ def main(argv: list[str] | None = None) -> int:
             speed=args.speed, margin=args.margin, edit_expression=args.edit,
             language=args.language, model=args.model, max_chars=args.max_chars,
             jobs=args.jobs,
+            subtitle_font=args.subtitle_font,
+            subtitle_font_size=args.subtitle_font_size,
+            subtitle_outline=args.subtitle_outline,
+            subtitle_y=args.subtitle_y,
+            subtitle_bold=args.subtitle_bold,
+            subtitle_background=args.subtitle_background,
+            box_clips=args.box_clips,
         )
-    except subprocess.CalledProcessError as e:
+    except (subprocess.CalledProcessError, ValueError) as e:
+        if isinstance(e, ValueError):
+            print(f"failed ({e})", file=sys.stderr)
+            return 2
         print(f"failed ({e.cmd[0]} exited {e.returncode})", file=sys.stderr)
         return 1
 

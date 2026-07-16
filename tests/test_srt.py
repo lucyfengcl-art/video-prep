@@ -185,6 +185,35 @@ def test_concat_srts_length_mismatch_raises(tmp_path: Path):
         concat_srts([a], [0.0, 1.0], tmp_path / "out.srt")
 
 
+def test_concat_srts_clips_cues_to_source_duration(tmp_path: Path):
+    a = tmp_path / "a.srt"
+    a.write_text(
+        "1\n00:00:04,800 --> 00:00:07,000\n尾字幕\n\n"
+        "2\n00:00:06,000 --> 00:00:08,000\n越界字幕\n",
+        encoding="utf-8",
+    )
+    b = tmp_path / "b.srt"
+    b.write_text(
+        "1\n00:00:00,000 --> 00:00:01,000\n下一段\n",
+        encoding="utf-8",
+    )
+
+    out = concat_srts(
+        [a, b], [0.0, 5.0], tmp_path / "out.srt", durations=[5.0, 1.0],
+    ).read_text(encoding="utf-8")
+
+    assert "00:00:04,800 --> 00:00:05,000" in out
+    assert "越界字幕" not in out
+    assert "00:00:05,000 --> 00:00:06,000" in out
+
+
+def test_concat_srts_duration_length_mismatch_raises(tmp_path: Path):
+    a = tmp_path / "a.srt"
+    a.write_text("1\n00:00:00,000 --> 00:00:01,000\nx\n", encoding="utf-8")
+    with pytest.raises(ValueError):
+        concat_srts([a], [0.0], tmp_path / "out.srt", durations=[1.0, 2.0])
+
+
 def test_split_cue_english_wraps_on_word_boundaries():
     text = "so basically I think this is a really interesting point to make"
     cues = split_cue(0, 4000, text, 20, space_delimited=True)

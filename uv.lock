@@ -623,7 +623,7 @@ wheels = [
 
 [[package]]
 name = "video-prep"
-version = "0.3.2"
+version = "0.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "auto-editor" },
@@ -638,7 +638,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "auto-editor", specifier = ">=29.3.1" },
-    { name = "faster-whisper", specifier = ">=1.0.0" },
+    { name = "faster-whisper", specifier = ">=1.2.1" },
 ]
 
 [package.metadata.requires-dev]

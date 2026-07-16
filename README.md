@@ -41,7 +41,8 @@ For each clip, in order:
    use `--model large-v3` for maximum accuracy). Works in any Whisper language;
    defaults to Mandarin (`--language
    zh`, override with `--language`). Runs on CPU anywhere, or a CUDA GPU
-   automatically if one is present.
+   automatically if one is present. VAD and anti-hallucination decoding are
+   enabled; cues are validated against the actual clip duration before output.
 3. **Speed up** to 1.1x with `ffmpeg` (`setpts` + `atempo`, preserves pitch), and
    normalize to a constant frame rate with audio locked to the video length
 4. **Rescale** the `.srt` timestamps by `1 / 1.1` so subtitles stay in sync
@@ -61,15 +62,17 @@ Output:
 out/2026-06-15/                # today's date; pass --name to override
 ├── 01.processed.mp4  01.srt   # each clip, processed (in natural filename order)
 ├── 02.processed.mp4  02.srt
+├── 02.subtitle-warnings.json  # only when cues were corrected/flagged
 ├── final.mp4         final.srt        # clips merged in order
 └── final.subbed.mp4                   # merged + burned subtitles  ← upload this
 ```
 
 The merged `.srt` is built by offsetting the per-clip subtitles (no second
-transcription). Per-clip outputs are cached by mtime, so re-running after changing
-one clip only reprocesses that clip — the merge and burn always rebuild from the
-current pieces. Burning needs `ffmpeg-full` (see below); without it you still get
-`final.mp4` + `final.srt`.
+transcription). Every cue is clipped to its source clip boundary, so a Whisper
+tail hallucination cannot overlap the next clip. Per-clip outputs are cached by
+source identity and processing options, so changing the language, model, speed,
+or transcription settings invalidates the right cached files. Burning needs
+`ffmpeg-full` (see below); without it you still get `final.mp4` + `final.srt`.
 
 The sections below cover the lower-level commands (`video-prep`, `-burn`,
 `-cut-filler`, `-assemble`) that `video-prep-edit` is built from — see also
@@ -252,7 +255,7 @@ the total runtime. Visual jump cuts are tiny and read as normal Rednote pacing.
 
 ## Burning subtitles into the video for preview
 
-`video-prep-burn` renders `.srt` text onto the video so you can preview the
+`video-prep-burn` converts `.srt` to styled ASS and renders it onto the video so you can preview the
 pacing without opening CapCut. Defaults: **Noto Sans CJK SC Medium** (the
 open-source equivalent of CapCut's 思源黑体), size 12, no outline, sitting
 near the bottom edge of the frame (raise `--font-size` / `--margin-v` for a
@@ -264,7 +267,15 @@ video-prep-burn out/combined.cleaned.mp4
 
 # tweak styling
 video-prep-burn out/combined.cleaned.mp4 \
-    --font-size 26 --outline 3 --margin-v 100
+    --font-size 11 --bold --subtitle-y 0.75
+
+# black background only in selected time ranges (seconds)
+video-prep-burn out/final.mp4 --srt out/final.srt \
+    --box-range 30.6:137.1
+
+# one-command edit: black background only during source clip 2
+video-prep-edit ./raw --subtitle-font-size 11 --subtitle-bold \
+    --subtitle-y 0.75 --box-clips 2
 
 # different srt or output path
 video-prep-burn out/combined.cleaned.mp4 \
@@ -300,9 +311,9 @@ font for selection.
 ## Speeding up a multi-clip edit
 
 - **Re-runs are incremental.** `video-prep-edit` caches each `NN.processed.mp4` /
-  `NN.srt` by source mtime in the dated `out/` folder. Keep that folder and just
-  re-run after changing one raw clip — only that clip re-transcribes, then the
-  merge rebuilds. (Don't delete `out/` between runs.)
+  `NN.srt` using source identity plus processing options. Changing a raw clip,
+  language, model, speed, or subtitle-generation setting reprocesses only what is
+  stale, then the merge rebuilds. Keep the dated output folder.
 - **Parallelize with `-j N`.** `video-prep-edit -j 3 ./raw` processes several
   clips at once (~1.4× on a multi-core CPU; sub-linear because transcription
   already uses every core). Each worker loads its own ~1.5 GB model, so keep `N`

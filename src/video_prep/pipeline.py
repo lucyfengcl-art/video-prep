@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +18,26 @@ from video_prep.transcribe import DEFAULT_MODEL, transcribe_to_srt
 class ProcessResult:
     video: Path
     srt: Path
+
+
+def _publish_subtitle_warnings(
+    work_dir: Path, out_dir: Path, stem: str, *, speed: float,
+) -> None:
+    source = work_dir / f"{stem}.subtitle-warnings.json"
+    target = out_dir / f"{stem}.subtitle-warnings.json"
+    if source.exists():
+        report = json.loads(source.read_text(encoding="utf-8"))
+        report["media_duration"] = round(report["media_duration"] / speed, 3)
+        report["timeline"] = "processed-video"
+        for warning in report["warnings"]:
+            warning["start"] = round(warning["start"] / speed, 3)
+            warning["end"] = round(warning["end"] / speed, 3)
+        target.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    else:
+        target.unlink(missing_ok=True)
 
 
 def process_clip(
@@ -62,6 +83,7 @@ def process_clip(
 
     final_srt = out_dir / f"{stem}.srt"
     rescale_srt(srt_raw, factor=speed, out_path=final_srt)
+    _publish_subtitle_warnings(work_dir, out_dir, stem, speed=speed)
 
     if not keep_intermediates:
         shutil.rmtree(work_dir, ignore_errors=True)
@@ -113,6 +135,7 @@ def process_combined(
 
     final_srt = out_dir / f"{name}.srt"
     rescale_srt(srt_raw, factor=speed, out_path=final_srt)
+    _publish_subtitle_warnings(work_dir, out_dir, name, speed=speed)
 
     if not keep_intermediates:
         shutil.rmtree(work_dir, ignore_errors=True)

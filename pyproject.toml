@@ -1,6 +1,6 @@
 [project]
 name = "video-prep"
-version = "0.4.0"
+version = "0.5.0"
 description = "Clean up raw video clips before editing: cut silence, transcribe speech to .srt in any language (Mandarin default), normalize speed, stitch in order"
 readme = "README.md"
 license = "MIT"
@@ -11,7 +11,7 @@ authors = [
 requires-python = ">=3.11"
 dependencies = [
     "auto-editor>=29.3.1",
-    "faster-whisper>=1.0.0",
+    "faster-whisper>=1.2.1",
 ]
 
 [project.scripts]

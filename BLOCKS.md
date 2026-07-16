@@ -24,13 +24,13 @@ core. Each block is both a CLI command and an importable Python function.
 | `speed_up` | `speedup` | `(src, dst, factor, *, fps, …)` → sped-up video, normalized to canonical CFR/SAR/sample-rate (concat-safe) |
 | `rescale_srt` | `srt` | `(path, factor, *, out_path)` → time-scaled `.srt` |
 | `concat_clips` | `concat` | `(sources, dst, *, fps, sample_rate, channels)` → one video; decodes + re-encodes via the concat filter, normalizing every input (no silent stream-copy desync) |
-| `concat_srts` | `srt` | `(srts, offsets, out_path)` → one `.srt` with each clip shifted by its offset (seconds) |
+| `concat_srts` | `srt` | `(srts, offsets, out_path, *, durations)` → one `.srt` with each clip shifted and clipped to its source duration |
 | `process_clip` | `pipeline` | `(src, out_dir, *, out_name, speed, …)` → `ProcessResult(video, srt)` (full per-clip pipeline) |
 | `process_combined` | `pipeline` | `(sources, out_dir, *, name, …)` → `ProcessResult` (concat then process once) |
 | `find_matches` | `cut_filler` | `(segments, words, *, pad)` → list of match dicts (pure; multi-token + case-insensitive) |
 | `cut_ranges` | `cut_filler` | `(src, dst, ranges)` → video with `[(start,end), …]` removed |
 | `build_cut_srt` | `cut_filler` | `(segments, removed, cuts, out_path)` → `.srt` rebuilt on the post-cut timeline |
-| `burn_subs` | `burn` | `(video, srt, out, *, font, font_size, outline, margin_v)` → subtitled video |
+| `burn_subs` | `burn` | `(video, srt, out, *, font, font_size, outline, subtitle_y, bold, background, box_ranges)` → ASS-styled subtitled video |
 | `normalize` | `assemble` | `(src, dst, *, mode)` → 1080×1920 video (`cover` crop / `contain` pad) |
 
 ## Example: a custom workflow on top

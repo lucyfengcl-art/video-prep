@@ -8,8 +8,12 @@ video path can be passed directly.
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from pathlib import Path
+
+from video_prep.media import probe_duration
+from video_prep.subtitle_quality import sanitize_segments
 
 # large-v3-turbo is ~2x faster than large-v3 on CPU with negligible quality loss
 # for short-form subtitles; pass --model large-v3 when you want maximum accuracy.
@@ -71,6 +75,40 @@ def _format_ts(seconds: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
+def _decode(whisper, src: Path, language: str | None, *, word_timestamps: bool):
+    """Decode with conservative defaults for edited speech recordings."""
+    return whisper.transcribe(
+        str(src),
+        language=_whisper_language(language),
+        word_timestamps=word_timestamps,
+        vad_filter=True,
+        condition_on_previous_text=False,
+        hallucination_silence_threshold=1.0,
+    )
+
+
+def _segment_dict(seg, *, word_timestamps: bool) -> dict:
+    entry: dict = {
+        "start": seg.start,
+        "end": seg.end,
+        "text": seg.text,
+        "avg_logprob": getattr(seg, "avg_logprob", None),
+        "no_speech_prob": getattr(seg, "no_speech_prob", None),
+        "compression_ratio": getattr(seg, "compression_ratio", None),
+    }
+    if word_timestamps:
+        entry["words"] = [
+            {
+                "word": w.word,
+                "start": w.start,
+                "end": w.end,
+                "probability": getattr(w, "probability", None),
+            }
+            for w in (seg.words or [])
+        ]
+    return entry
+
+
 def transcribe_segments(
     src: Path,
     *,
@@ -88,20 +126,12 @@ def transcribe_segments(
     """
     device, compute_type = _pick_runtime(device, compute_type)
     whisper = _load_model(model, device, compute_type)
-    segments, _info = whisper.transcribe(
-        str(src), language=_whisper_language(language),
-        word_timestamps=word_timestamps,
+    segments, _info = _decode(
+        whisper, Path(src), language, word_timestamps=word_timestamps,
     )
-    out: list[dict] = []
-    for seg in segments:
-        entry: dict = {"start": seg.start, "end": seg.end, "text": seg.text}
-        if word_timestamps:
-            entry["words"] = [
-                {"word": w.word, "start": w.start, "end": w.end}
-                for w in (seg.words or [])
-            ]
-        out.append(entry)
-    return out
+    decoded = [_segment_dict(seg, word_timestamps=word_timestamps) for seg in segments]
+    clean, _warnings = sanitize_segments(decoded, probe_duration(src))
+    return clean
 
 
 def transcribe_to_srt(
@@ -134,7 +164,29 @@ def transcribe_to_srt(
 
     device, compute_type = _pick_runtime(device, compute_type)
     whisper = _load_model(model, device, compute_type)
-    segments, info = whisper.transcribe(str(src), language=_whisper_language(language))
+    segments, info = _decode(whisper, src, language, word_timestamps=True)
+    decoded = [_segment_dict(seg, word_timestamps=True) for seg in segments]
+    duration = probe_duration(src)
+    decoded, warnings = sanitize_segments(decoded, duration)
+
+    warning_path = out_dir / f"{stem}.subtitle-warnings.json"
+    if warnings:
+        warning_path.write_text(
+            json.dumps(
+                {"media_duration": duration, "warnings": warnings},
+                ensure_ascii=False,
+                indent=2,
+            ) + "\n",
+            encoding="utf-8",
+        )
+        corrected = sum(w["action"] in {"dropped", "clamped"} for w in warnings)
+        reviews = sum(w["action"] == "review" for w in warnings)
+        print(
+            f"  subtitle validation: corrected {corrected}, "
+            f"flagged {reviews} for review -> {warning_path.name}"
+        )
+    else:
+        warning_path.unlink(missing_ok=True)
 
     # Resolve language (Whisper detects it when "auto") to choose wrapping style.
     detected = _whisper_language(language) or getattr(info, "language", None) or "en"
@@ -143,12 +195,12 @@ def transcribe_to_srt(
         max_chars = 42 if spaced else 20
 
     cues: list[tuple[int, int, str]] = []
-    for seg in segments:
-        text = seg.text.strip()
+    for seg in decoded:
+        text = seg["text"].strip()
         if not text:
             continue
-        start_ms = max(0, round(seg.start * 1000))
-        end_ms = max(0, round(seg.end * 1000))
+        start_ms = max(0, round(seg["start"] * 1000))
+        end_ms = max(0, round(seg["end"] * 1000))
         if max_chars > 0:
             cues.extend(split_cue(start_ms, end_ms, text, max_chars,
                                   space_delimited=spaced))

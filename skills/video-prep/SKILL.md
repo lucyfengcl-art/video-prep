@@ -1,7 +1,7 @@
 ---
 name: video-prep
 description: Runs the tedious cleanup pass on raw video recordings before the real edit — cut silent gaps, transcribe subtitles in any language (Mandarin by default), normalize speed, and stitch clips in natural numeric order. Use when the user drops recordings into a raw/ folder or asks to "clean up", "prep", or "edit" their clips. Outputs clean per-clip mp4 + .srt (plus an optional merged, subtitle-burned preview) ready to drop into any editor (CapCut, Premiere, DaVinci, …). This is pre-processing, not the creative edit.
-version: 2.0.0
+version: 2.1.0
 ---
 
 # Prep raw clips for editing
@@ -140,6 +140,8 @@ and `.srt` files (just skips the burned preview); tell the user how to enable it
    This writes everything into `out/<today's date>/`:
    - `NN.processed.mp4` + `NN.srt` — each clip, cleaned (**the main handoff** — drop
      these into your editor)
+   - `NN.subtitle-warnings.json` — only when subtitle validation corrected or
+     flagged suspicious Whisper output; review the listed timestamps
    - `final.mp4` + `final.srt` — the clips merged in order, if you just want one
      stitched file
    - `final.subbed.mp4` — merged video with subtitles burned in, an **optional quick
@@ -166,9 +168,10 @@ A folder of 10+ clips works the same way — one command — but keep these in m
   clips at once (~1.4x faster on a multi-core CPU — transcription already uses all
   cores, so the gain is sub-linear). Each worker loads its own ~1.5 GB model, so
   keep it to 2–4 unless the machine has plenty of RAM.
-- **Re-runs are cheap.** Per-clip output is cached by source mtime in the dated
-  folder, so after you swap or re-trim one clip, re-running reprocesses only that
-  clip and rebuilds the merge. Keep the same `out/<date>/` folder — don't delete it.
+- **Re-runs are cheap and configuration-aware.** Per-clip output is cached by
+  source identity plus the processing options in the dated folder. Changing a
+  clip, language, model, speed, or transcription setting reprocesses the affected
+  clip; unchanged work is reused.
 - **Sanity-check the result.** Confirm every clip produced an `NN.processed.mp4`
   and that `final.mp4`'s duration ≈ the sum of the clips; a large gap means a clip
   failed or was skipped.
@@ -195,6 +198,12 @@ A folder of 10+ clips works the same way — one command — but keep these in m
   ```sh
   video-prep-burn out/<date>/final.mp4 \
       --srt out/<date>/final.srt --font-size 18 --outline 2 --margin-v 100
+  ```
+  For a stable baseline at 3/4 screen height, bold text, and a black background
+  only during source clip 2:
+  ```sh
+  video-prep-edit ./raw --subtitle-font-size 11 --subtitle-bold \
+      --subtitle-y 0.75 --box-clips 2
   ```
 
 ## Extending this
