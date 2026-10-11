@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 
 from video_prep.fillers import default_fillers
-from video_prep.transcribe import DEFAULT_MODEL, transcribe_segments
+from video_prep.transcribe import DEFAULT_MODEL, detect_language, transcribe_segments
 
 # Punctuation we ignore when matching transcribed words against --word targets.
 _PUNCT_RE = re.compile(
@@ -42,7 +42,7 @@ def find_word_ranges(
     words: set[str],
     *,
     model: str = DEFAULT_MODEL,
-    language: str = "zh",
+    language: str = "auto",
     pad: float = 0.05,
 ) -> tuple[list[dict], list[dict]]:
     """Find filler-word occurrences and return ``(matches, segments)``.
@@ -256,14 +256,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="video-prep-cut-filler",
         description=(
-            "Cut filler words (e.g. 然后) from a video and regenerate its .srt"
+            "Cut filler words (e.g. um, uh) from a video and regenerate its .srt"
         ),
     )
     parser.add_argument("video", type=Path, help="Input video (.mp4/.mov)")
     parser.add_argument(
         "--word",
         action="append",
-        help="Filler word to scan for (repeatable, e.g. --word 然后 --word 就是). "
+        help="Filler word to scan for (repeatable, e.g. --word um --word 'you know'). "
              "Defaults to a built-in list for --language if omitted.",
     )
     parser.add_argument(
@@ -278,7 +278,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Seconds of padding on each side of each cut (default: 0.05)",
     )
     parser.add_argument("--model", default=DEFAULT_MODEL)
-    parser.add_argument("--language", default="zh")
+    parser.add_argument("--language", default="auto")
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -304,11 +304,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: video not found: {src}", file=sys.stderr)
         return 2
 
-    words = set(args.word) if args.word else set(default_fillers(args.language))
+    language = args.language
+    if not args.word and language.lower() == "auto":
+        # Built-in filler lists are per language, so resolve "auto" up front.
+        language = detect_language(src, model=args.model)
+        if not args.json:
+            print(f"Detected language: {language}")
+
+    words = set(args.word) if args.word else set(default_fillers(language))
     if not words:
         print(
             f"error: no filler words to scan for — pass --word, or use a language "
-            f"with built-in defaults (got --language {args.language!r}).",
+            f"with built-in defaults (got --language {language!r}).",
             file=sys.stderr,
         )
         return 2
@@ -322,7 +329,7 @@ def main(argv: list[str] | None = None) -> int:
         src,
         words,
         model=args.model,
-        language=args.language,
+        language=language,
         pad=args.pad,
     )
 

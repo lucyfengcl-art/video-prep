@@ -94,7 +94,7 @@ def edit(
     speed: float = 1.1,
     margin: str = "0.2s",
     edit_expression: str = "audio",
-    language: str = "zh",
+    language: str = "auto",
     model: str = DEFAULT_MODEL,
     max_chars: int = -1,
     jobs: int = 1,
@@ -264,8 +264,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--edit", default="audio", help="auto-editor edit expr")
     parser.add_argument(
-        "--language", default="zh",
-        help="Whisper language code, or 'auto' to detect (default: zh)",
+        "--language", default="auto",
+        help="Whisper language code, or 'auto' to detect (default: auto)",
     )
     parser.add_argument("--model", default=DEFAULT_MODEL, help="faster-whisper model")
     parser.add_argument(
@@ -346,7 +346,7 @@ def main(argv: list[str] | None = None) -> int:
     for label, path in outputs.items():
         print(f"  {label}: {path}")
     deliverable = outputs.get("subbed", outputs["video"])
-    print(f"\n-> Upload {deliverable} to Rednote.")
+    print(f"\n-> Ready: {deliverable}")
     return 0
 
 

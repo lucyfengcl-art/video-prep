@@ -1,7 +1,7 @@
 """Assemble recorded segments into one finished vertical (9:16) video.
 
 Drop the recordings into a folder named ``NN-<kind>-<label>.<ext>`` and this
-stitches them, in ``NN`` order, into a single 1080x1920 mp4 ready for Rednote.
+stitches them, in ``NN`` order, into a single 1080x1920 mp4 ready to upload.
 
 ``kind`` picks the treatment:
 
@@ -150,7 +150,7 @@ def assemble(
     speed: float = 1.1,
     margin: str = "0.2s",
     edit_expression: str = "audio",
-    language: str = "zh",
+    language: str = "auto",
     model: str = DEFAULT_MODEL,
 ) -> Path:
     """Assemble all segments in `edit_dir` into one vertical video at `out_path`.
@@ -225,7 +225,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Silence-cut padding for talk segments (default: 0.2s)",
     )
     parser.add_argument("--edit", default="audio", help="auto-editor edit expr")
-    parser.add_argument("--language", default="zh", help="Whisper language code")
+    parser.add_argument("--language", default="auto", help="Whisper language code")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="faster-whisper model")
     return parser
 
@@ -244,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
     except subprocess.CalledProcessError as e:
         print(f"failed ({e.cmd[0]} exited {e.returncode})", file=sys.stderr)
         return 1
-    print(f"\nDone. Upload {result.name} to Rednote.")
+    print(f"\nDone: {result.name}")
     return 0
 
 

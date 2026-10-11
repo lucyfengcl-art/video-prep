@@ -3,7 +3,7 @@
 **English** | [简体中文](README.zh-CN.md)
 
 Automate the tedious cleanup pass that almost every talking-head edit needs: cut
-silent gaps, transcribe speech to `.srt` (any language, Mandarin by default),
+silent gaps, transcribe speech to `.srt` (any language, auto-detected),
 normalize speed. Outputs a clean
 `.mp4` + matching `.srt` per input clip, ready to drop into any editor (CapCut,
 Premiere, DaVinci, …) for the actual arrangement, transitions, and touch-ups.
@@ -12,7 +12,7 @@ It's the pre-processing, not the creative edit.
 ## What it's for
 
 `video-prep` is built for **talking-head video** — footage you record straight
-into the camera: Rednote / TikTok / Bilibili / YouTube clips, vlogs, tutorials,
+into the camera: TikTok / YouTube / Shorts / Reels clips, vlogs, tutorials,
 course lessons, podcast recordings, product walkthroughs. If your routine is
 *"shoot a pile of takes on my phone, then waste an hour topping-and-tailing
 them,"* this does that hour for you.
@@ -20,13 +20,13 @@ them,"* this does that hour for you.
 It automates the repetitive cleanup every one of those edits needs:
 
 - ✂️ **Cut the dead air** — silent gaps and long pauses removed
-- 💬 **Subtitles** auto-transcribed in any language (Mandarin by default), in sync
+- 💬 **Subtitles** auto-transcribed in 90+ languages (English, Spanish, Mandarin, …), in sync
 - ⏩ **Tighten the pace** with a subtle speed-up (pitch preserved — no chipmunk voice)
 - 🔗 **Stitch many clips** into one finished video, in order, subtitles burned in
-- 🗣️ **Trim filler words** (然后, um, uh…) — it suggests, you choose what to cut
+- 🗣️ **Trim filler words** (um, uh, o sea…) — it suggests, you choose what to cut
 
 What it's **not**: the creative edit. Transitions, music, b-roll, color, and the
-final arrangement stay in your editor (CapCut / 剪映, Premiere, DaVinci…). This
+final arrangement stay in your editor (CapCut, Premiere, DaVinci…). This
 hands you clean, subtitled, ready-to-arrange clips so you can skip the boring part
 and go straight to the fun part.
 
@@ -37,10 +37,10 @@ For each clip, in order:
 1. **Cut silence** with [`auto-editor`](https://auto-editor.com)
 2. **Transcribe** the trimmed audio (at natural speed, for best accuracy) with
    [`faster-whisper`](https://github.com/SYSTRAN/faster-whisper), model
-   `large-v3-turbo` (≈2× faster than `large-v3` on CPU, negligible quality loss;
-   use `--model large-v3` for maximum accuracy). Works in any Whisper language;
-   defaults to Mandarin (`--language
-   zh`, override with `--language`). Runs on CPU anywhere, or a CUDA GPU
+   `small` (~460 MB, accurate for English, Spanish and other widely spoken
+   languages; use `--model large-v3-turbo` for the best accuracy, especially on
+   Mandarin or less common languages). Works in any Whisper language; detects
+   it automatically (or pass `--language en`, `es`, …). Runs on CPU anywhere, or a CUDA GPU
    automatically if one is present. VAD and anti-hallucination decoding are
    enabled; cues are validated against the actual clip duration before output.
 3. **Speed up** to 1.1x with `ffmpeg` (`setpts` + `atempo`, preserves pitch), and
@@ -88,7 +88,8 @@ it up (see [Install](#install)), it can install these for you too.
 - macOS, Windows, or Linux (Intel or ARM) — transcription runs on CPU via
   `faster-whisper`, or a CUDA GPU automatically if present
 - `ffmpeg` — `brew install ffmpeg` (macOS) / your package manager elsewhere
-- `ffmpeg-full` (subtitle burning) — `brew install ffmpeg-full` plus
+- `ffmpeg-full` (subtitle burning) — `brew install ffmpeg-full`; for
+  Chinese/Japanese/Korean subtitles also
   `brew install --cask font-noto-sans-cjk-sc && fc-cache -f`
 - `uv` — `curl -LsSf https://astral.sh/uv/install.sh | sh`
 - Python 3.11+ (auto-installed by `uv`)
@@ -130,8 +131,9 @@ This puts `video-prep`, `video-prep-edit`, `video-prep-burn`, and
 > Running the commands below from a **source checkout** instead? Use `uv sync`
 > once, then prefix each command with `uv run` (e.g. `uv run video-prep-edit`).
 
-The first transcription run downloads the Whisper model (~1.6 GB for
-`large-v3-turbo`); subsequent runs use the cached copy in `~/.cache/huggingface`.
+The first transcription run downloads the Whisper model once (~460 MB for the
+default `small`, ~1.5 GB if you opt into `large-v3-turbo`); later runs use the
+cached copy in `~/.cache/huggingface`.
 
 ## Usage
 
@@ -202,18 +204,18 @@ touch-ups.
 
 ## First-run smoke test
 
-1. AirDrop a short (~30s) Mandarin clip from your phone to the project folder
+1. Copy a short (~30s) talking clip from your phone to the project folder
 2. `video-prep test.mov`
 3. First run will download the Whisper model — be patient
 4. Open `out/test.processed.mp4` in QuickPlayer:
    - Silent gaps should be removed
    - Audio plays at ~1.1x, pitch unchanged (no chipmunk voice)
-5. Open `out/test.srt` — check the Chinese transcription
+5. Open `out/test.srt` — check the transcription
 6. Drop both into a fresh CapCut project — **the key check**: subtitles should
    stay aligned with audio after the speed change. If they drift, the
    timestamp rescaling has a bug (off by the speed factor).
 
-## Cutting filler words (然后, 就是 … / um, uh …)
+## Cutting filler words (um, uh … / eh, o sea …)
 
 After the main pipeline, scrub a finished video for spoken filler words — removed
 from audio AND video together. The cutter **suggests, you decide**: it scans and
@@ -221,24 +223,25 @@ lists matches with sentence context, and removes nothing until you pick which
 with `--indices`.
 
 ```sh
-# 1. Scan with the language's built-in filler list (zh by default); lists matches
+# 1. Scan with the built-in filler list for the detected language; lists matches
 video-prep-cut-filler out/final.mp4
 
-# English clip; --json prints matches for a tool/agent to present for selection
-video-prep-cut-filler out/final.mp4 --language en --json
+# Spanish clip; --json prints matches for a tool/agent to present for selection
+video-prep-cut-filler out/final.mp4 --language es --json
 
 # target specific words instead of the defaults
-video-prep-cut-filler out/final.mp4 --word 然后 --word 就是
+video-prep-cut-filler out/final.mp4 --word basically --word "you know"
 
 # 2. Cut only the matches you chose (1-based ranges, or 'all')
 video-prep-cut-filler out/final.mp4 --indices 1,3,5-8
-video-prep-cut-filler out/final.mp4 --word 然后 --indices all -o out/final.cleaned.mp4
+video-prep-cut-filler out/final.mp4 --word um --indices all -o out/final.cleaned.mp4
 ```
 
 Notes:
 
-- Built-in filler lists exist for `zh` and `en`; `--word` overrides them.
-- Matching is case-insensitive and spans multi-token words (于是, "you know").
+- Built-in filler lists exist for English `en`, Spanish `es` and Mandarin `zh`;
+  `--word` overrides them or covers other languages.
+- Matching is case-insensitive and spans multi-token words ("you know", "o sea").
 - Each match shows prev/this/next context, so you can tell whether an ambiguous
   word (English "so", "like") is really a filler before cutting it.
 
@@ -251,13 +254,13 @@ How it works:
    shifting later timestamps onto the new timeline (no second transcription pass).
 
 Each cut is ~0.2–0.6s, so expect roughly that × N word occurrences shaved off
-the total runtime. Visual jump cuts are tiny and read as normal Rednote pacing.
+the total runtime. Visual jump cuts are tiny and read as normal short-form pacing.
 
 ## Burning subtitles into the video for preview
 
 `video-prep-burn` converts `.srt` to styled ASS and renders it onto the video so you can preview the
-pacing without opening CapCut. Defaults: **Noto Sans CJK SC Medium** (the
-open-source equivalent of CapCut's 思源黑体), size 12, no outline, sitting
+pacing without opening CapCut. Defaults: **Noto Sans CJK SC Medium** (covers
+Latin and CJK scripts in one clean sans), size 12, no outline, sitting
 near the bottom edge of the frame (raise `--font-size` / `--margin-v` for a
 bolder, higher caption).
 
@@ -293,17 +296,19 @@ fc-cache -f
 
 The plain `brew install ffmpeg` bottle is built without libass and can't
 render subtitles. The font cask + `fc-cache -f` makes libass aware of the
-font for selection.
+font for selection; without it, Latin-script subtitles fall back to a system
+font, but Chinese/Japanese/Korean need it.
 
 ## Tuning
 
-- `--margin 0.3s` if Mandarin tone tails are getting clipped
+- `--margin 0.3s` if word endings are getting clipped
 - `--edit "audio:threshold=0.03"` to cut more aggressively on quiet audio
-- `--model large-v3` for maximum subtitle accuracy (slower); `--model medium`
-  (or `small`) if even the default `large-v3-turbo` is too slow on CPU
-- `--language en` (or any Whisper code, or `auto` to detect) for non-Mandarin
+- `--model large-v3-turbo` (~1.5 GB) for the most accurate subtitles,
+  especially Mandarin or less common languages; `--model base` (~140 MB) for a
+  smaller, faster, less accurate run
+- `--language es` (any Whisper code) to skip detection — more reliable on short
   clips; subtitle wrapping adapts (word-wrap for spaced languages, char-wrap for
-  Chinese)
+  Chinese/Japanese)
 - `-j 3` to process clips in parallel on a multi-core CPU (~1.4×)
 - `--max-chars` controls subtitle cue length: default `-1` auto-picks by language
   (20 for Chinese, 42 for spaced languages); `0` keeps Whisper's original lengths
@@ -316,7 +321,7 @@ font for selection.
   stale, then the merge rebuilds. Keep the dated output folder.
 - **Parallelize with `-j N`.** `video-prep-edit -j 3 ./raw` processes several
   clips at once (~1.4× on a multi-core CPU; sub-linear because transcription
-  already uses every core). Each worker loads its own ~1.5 GB model, so keep `N`
+  already uses every core). Each worker loads its own copy of the model, so keep `N`
   to 2–4 unless you have plenty of RAM.
 - **Don't pairwise-merge ("divide and conquer").** The clips are the independent,
   cacheable unit; the merge is one pass. Merging already-merged files re-encodes
@@ -377,9 +382,9 @@ just tell the agent (or type them yourself):
 | Want to change | Flag |
 |---|---|
 | Speed | `--speed 1.3` |
-| Subtitle language | `--language en` (any Whisper language) |
+| Subtitle language | `--language es` (any Whisper language; default auto-detect) |
 | Silence sensitivity | `--margin 0.3s`, `--edit "audio:threshold=0.03"` |
-| Whisper model | `--model medium` |
+| Whisper model | `--model large-v3-turbo` (accurate) / `base` (small) |
 | Subtitle styling | `video-prep-burn --font-size 26 --outline 3 --margin-v 100` |
 
 **2. Build your own skill on top (recommended for repeatable workflows).** Add a
@@ -403,5 +408,5 @@ Unit tests cover the pieces with non-obvious logic where a bug would silently
 desync subtitles or reorder clips: the SRT timestamp scaler, per-clip SRT
 concatenation (`concat_srts`), natural-order sorting, cue splitting (character
 wrap for Chinese, word wrap for English), the per-language filler defaults, the
-filler-word matcher (case-insensitive, multi-token words like 于是) + post-cut SRT
+filler-word matcher (case-insensitive, multi-token words like "you know") + post-cut SRT
 rebuild, and CLI flag parsing.

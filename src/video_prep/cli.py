@@ -55,8 +55,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="video-prep",
         description=(
-            "Cut silence, transcribe Mandarin to .srt, and speed up clips for "
-            "Rednote. Outputs a CapCut-ready video + .srt (one per clip, or "
+            "Cut silence, transcribe speech to .srt, and speed up clips. "
+            "Outputs an editor-ready video + .srt (one per clip, or "
             "one combined output with --combine)."
         ),
     )
@@ -104,8 +104,8 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--language",
-        default="zh",
-        help="Whisper language code, or 'auto' to detect (default: zh)",
+        default="auto",
+        help="Whisper language code, or 'auto' to detect (default: auto)",
     )
     parser.add_argument(
         "--model",

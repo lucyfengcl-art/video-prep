@@ -1,7 +1,7 @@
 {
   "name": "video-prep",
-  "description": "Clean up raw video clips before editing: cut silence, transcribe subtitles in any language (Mandarin by default), normalize speed, and stitch clips in filename order — outputs clean clips + .srt ready to drop into any editor. Includes a /video-prep skill plus helpers for filler-word removal and subtitle burning. Pre-processing, not the creative edit.",
-  "version": "0.4.0",
+  "description": "Clean up raw video clips before editing: cut silence, transcribe subtitles in any language (auto-detected: English, Spanish, Mandarin, …), normalize speed, and stitch clips in filename order — outputs clean clips + .srt ready to drop into any editor. Includes a /video-prep skill plus helpers for filler-word removal and subtitle burning. Pre-processing, not the creative edit.",
+  "version": "2.2.0",
   "author": {
     "name": "lucyfengcl",
     "email": "lucyfengcl@gmail.com"

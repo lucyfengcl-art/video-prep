@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Self-locating launcher for the bundled video-prep package.
 #
-# Lets the /prep-clips skill run the tool from ANY working directory after a
+# Lets the /video-prep skill run the tool from ANY working directory after a
 # plain plugin install — no `cd` into the repo and no manual `uv sync`. uv
 # resolves Python + dependencies the first time it runs and reuses them after.
 #

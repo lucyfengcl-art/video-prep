@@ -1,14 +1,14 @@
 ---
 name: video-prep
-description: Runs the tedious cleanup pass on raw video recordings before the real edit — cut silent gaps, transcribe subtitles in any language (Mandarin by default), normalize speed, and stitch clips in natural numeric order. Use when the user drops recordings into a raw/ folder or asks to "clean up", "prep", or "edit" their clips. Outputs clean per-clip mp4 + .srt (plus an optional merged, subtitle-burned preview) ready to drop into any editor (CapCut, Premiere, DaVinci, …). This is pre-processing, not the creative edit.
-version: 2.1.0
+description: Runs the tedious cleanup pass on raw video recordings before the real edit — cut silent gaps, transcribe subtitles in any language (auto-detected — English, Spanish, Mandarin, …), normalize speed, and stitch clips in natural numeric order. Use when the user drops recordings into a raw/ folder or asks to "clean up", "prep", or "edit" their clips. Outputs clean per-clip mp4 + .srt (plus an optional merged, subtitle-burned preview) ready to drop into any editor (CapCut, Premiere, DaVinci, …). This is pre-processing, not the creative edit.
+version: 2.2.0
 ---
 
 # Prep raw clips for editing
 
 Do the boring cleanup pass on raw recordings so the clips are ready for whatever
 edit comes next. It handles the parts nobody wants to do by hand — cut silent
-gaps, add subtitles in any language (Mandarin by default), normalize speed, and
+gaps, add subtitles in any language (auto-detected), normalize speed, and
 stitch clips in natural numeric order — and hands back clean clips plus matching `.srt`,
 in one command.
 
@@ -34,7 +34,7 @@ clips or start asking for a folder.** First give a short capability intro so the
 know what's on offer and how to trigger each part.
 
 **Answer in the user's language.** Match whatever language they wrote in — if they
-message in Chinese, give the whole intro (and the example prompts) in Chinese; if
+message in Spanish, give the whole intro (and the example prompts) in Spanish; if
 in English, English; and so on. The template below is written in English only as a
 reference for *what to say* — translate it, don't echo it verbatim. Keep the
 `./raw` folder name and CLI flags as-is, but everything a human reads should be in
@@ -46,9 +46,9 @@ their language. Use roughly this template (keep it tight):
 > 1. **Prep a folder of clips** (the main one) — cut silent gaps, add subtitles,
 >    normalize speed, and stitch clips in order.
 >    → *"Prep the clips in ./raw"* or *"clean up my footage in English"*
-> 2. **Subtitles in any language** — Mandarin by default; say the language.
->    → *"…and subtitle them in English"* / *"detect the language automatically"*
-> 3. **Suggest & remove filler words** (然后, 就是… / um, uh, you know…) — I list
+> 2. **Subtitles in any language** — detected automatically, or say the language.
+>    → *"…and subtitle them in Spanish"* / *"use the most accurate model"*
+> 3. **Suggest & remove filler words** (um, uh, you know… / eh, o sea, este…) — I list
 >    matches with context and cut **only** the ones you pick.
 >    → *"find the filler words"* / *"cut the ums"*
 > 4. **Burn / restyle subtitles** onto a preview video.
@@ -70,9 +70,9 @@ Quick map from what a user wants to the section that handles it:
 | The user wants… | Trigger phrases | Go to |
 | --- | --- | --- |
 | The full cleanup pass on a folder | "prep / clean up / edit my clips", "do the edit" | **Steps** |
-| Subtitles in a specific language | "in English", "in Japanese", "auto-detect the language" | **Steps** (step 2) |
+| Subtitles in a specific language | "in Spanish", "in Japanese", "more accurate subtitles" | **Steps** (step 2) |
 | A big batch (10+ clips) done fast | "I have 20 clips", "this is a lot of footage" | **Handling many clips** |
-| Filler words gone | "cut the ums", "remove 然后/就是", "clean up my speech" | **Common follow-ups** |
+| Filler words gone | "cut the ums", "remove the 'o sea's", "clean up my speech" | **Common follow-ups** |
 | Different-looking captions | "bigger subtitles", "restyle the captions", "move them up" | **Common follow-ups** |
 | To build a bigger workflow on top | "add transitions too", "make my own edit flow" | **Extending this** |
 
@@ -112,11 +112,14 @@ The launcher uses `uv` to provide Python and all Python dependencies — those a
 - `uv` — `curl -LsSf https://astral.sh/uv/install.sh | sh` (the launcher prints
   this if it is missing)
 - `ffmpeg` (silence cut / speed / concat): `brew install ffmpeg`
-- `ffmpeg-full` (burning subtitles via libass): `brew install ffmpeg-full` plus a
-  CJK font — `brew install --cask font-noto-sans-cjk-sc && fc-cache -f`
+- `ffmpeg-full` (burning subtitles via libass): `brew install ffmpeg-full`; for
+  Chinese/Japanese/Korean subtitles also a CJK font —
+  `brew install --cask font-noto-sans-cjk-sc && fc-cache -f`
 
-Subtitles work in any Whisper language; the default is Mandarin (`--language zh`)
-— pass another language code to override. If `ffmpeg-full` is missing, the prep still produces the cleaned clips
+Subtitles work in any Whisper language; the language is detected automatically
+(`--language auto`). The first transcription downloads the speech model once
+(~460 MB for the default `small`) — warn the user the first run takes longer.
+If `ffmpeg-full` is missing, the prep still produces the cleaned clips
 and `.srt` files (just skips the burned preview); tell the user how to enable it.
 
 ## Steps
@@ -126,16 +129,23 @@ and `.srt` files (just skips the burned preview); tell the user how to enable it
    correctly with no zero-padding, and mixed extensions (`.mp4`/`.MOV`) are fine.
    With many clips, list the resolved order and confirm it with the user before
    running — a wrong order otherwise wastes a long transcription pass.
-2. Pick the spoken language. The default is Mandarin (`--language zh`). For other
-   languages pass the Whisper code (e.g. `--language en` for English) or
-   `--language auto` to detect it. If it isn't obvious from the request, ask the
-   user. Subtitle line length adapts automatically (Chinese wraps by character,
-   spaced languages like English wrap on whole words).
+2. Pick the spoken language. The default detects it (`--language auto`). When
+   the user names the language, pass its Whisper code (`--language en`,
+   `--language es`, `--language zh`, …) — explicit is more reliable than
+   detection, especially for short clips. Subtitle line length adapts
+   automatically (Chinese/Japanese wrap by character, spaced languages like
+   English and Spanish wrap on whole words).
+
+   Pick the model. The default `small` (~460 MB) is accurate for English,
+   Spanish and other widely spoken languages. Suggest `--model large-v3-turbo`
+   (~1.5 GB, slower) for Mandarin, less common languages, heavy accents or noisy
+   audio, or whenever the user says the subtitles have too many mistakes.
 3. Run the one-command prep (see "How to invoke" — prefix with the launcher if
    `video-prep-edit` isn't on `PATH`):
    ```sh
-   video-prep-edit ./raw                 # Mandarin
-   video-prep-edit ./raw --language en   # English
+   video-prep-edit ./raw                                     # auto-detect
+   video-prep-edit ./raw --language es                       # Spanish
+   video-prep-edit ./raw --language zh --model large-v3-turbo  # Mandarin, most accurate
    ```
    This writes everything into `out/<today's date>/`:
    - `NN.processed.mp4` + `NN.srt` — each clip, cleaned (**the main handoff** — drop
@@ -160,14 +170,15 @@ A folder of 10+ clips works the same way — one command — but keep these in m
   yourself: the tool already cuts, transcribes, normalizes, and concatenates in one
   pass, and manual splitting/merging re-encodes the same footage repeatedly (slower,
   quality loss) and reintroduces audio/video drift at every seam.
-- **Run it in the background.** Transcription dominates (~10–20s per clip on CPU
-  with the default `large-v3-turbo`), so a large folder runs for many minutes and
+- **Run it in the background.** Transcription dominates (and is noticeably
+  slower with `large-v3-turbo` than the default `small`), so a large folder runs for many minutes and
   will exceed a single foreground command's timeout. Launch the run in the
   background and poll for completion instead of blocking on it.
 - **Parallelize with `-j`.** Pass `-j 3` to `video-prep-edit` to process several
   clips at once (~1.4x faster on a multi-core CPU — transcription already uses all
-  cores, so the gain is sub-linear). Each worker loads its own ~1.5 GB model, so
-  keep it to 2–4 unless the machine has plenty of RAM.
+  cores, so the gain is sub-linear). Each worker loads its own copy of the model
+  (~0.5 GB for `small`, ~1.5 GB for `large-v3-turbo`), so keep it to 2–4 unless
+  the machine has plenty of RAM.
 - **Re-runs are cheap and configuration-aware.** Per-clip output is cached by
   source identity plus the processing options in the dated folder. Changing a
   clip, language, model, speed, or transcription setting reprocesses the affected
@@ -178,11 +189,12 @@ A folder of 10+ clips works the same way — one command — but keep these in m
 
 ## Common follow-ups
 
-- **Remove filler words** (然后, 就是 … / um, uh, you know …) — the cutter
+- **Remove filler words** (um, uh, you know … / eh, o sea … / 然后, 就是 …) — the cutter
   **suggests, you decide**: it scans, lists matches with context, and cuts
-  *nothing* until you pass `--indices`. Default word lists exist per language
-  (Mandarin `zh`, English `en`); pass `--word` to override. Matching is
-  case-insensitive and handles multi-token words (于是, "you know").
+  *nothing* until you pass `--indices`. Default word lists exist for English
+  `en`, Spanish `es` and Mandarin `zh` (with `--language auto` the cutter detects
+  the language first); pass `--word` to override or for other languages.
+  Matching is case-insensitive and handles multi-token words ("you know", "o sea").
 
   Drive it as a two-step, user-in-the-loop flow:
   ```sh
@@ -192,7 +204,7 @@ A folder of 10+ clips works the same way — one command — but keep these in m
   # 2. Cut only the ones they chose:
   video-prep-cut-filler out/<date>/final.mp4 --language en --indices 1,4,5
   ```
-  Use `--word 于是` to target a specific word, or `--indices all` to take every
+  Use `--word basically` to target a specific word, or `--indices all` to take every
   match. Always confirm the selection with the user before cutting.
 - **Re-burn / restyle subtitles** on a preview:
   ```sh

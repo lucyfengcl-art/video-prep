@@ -12,6 +12,8 @@ DEFAULT_FILLERS: dict[str, list[str]] = {
     "zh": ["然后", "就是", "那个", "这个", "嗯", "呃", "啊", "反正", "其实"],
     "en": ["um", "uh", "er", "erm", "hmm", "like", "you know", "i mean",
            "kind of", "sort of", "basically", "literally", "actually"],
+    "es": ["eh", "em", "este", "o sea", "pues", "bueno", "entonces", "digamos",
+           "tipo", "vale", "como que", "en plan"],
 }
 
 

@@ -44,6 +44,3 @@ from video_prep.burn import burn_subs
 r = process_clip(Path("raw/talk.mov"), Path("out/"), speed=1.2)
 burn_subs(r.video, r.srt, Path("out/talk.subbed.mp4"), font_size=22, outline=2)
 ```
-
-A future "workflow-builder" skill reads this catalog to know what it can wire
-together, then generates a script like the above for the user's specific needs.

@@ -115,3 +115,23 @@ def test_find_matches_english_multiword():
     matches = find_matches([seg], {"you know"})
     assert len(matches) == 1
     assert matches[0]["start"] <= 0.0 + 1e-9 or matches[0]["start"] >= 0.0
+
+
+def test_main_auto_language_uses_detected_fillers(tmp_path, monkeypatch):
+    import video_prep.cut_filler as cf
+
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"")
+    seen = {}
+
+    def fake_find(src, words, *, model, language, pad):
+        seen["words"], seen["language"] = words, language
+        return [], []
+
+    monkeypatch.setattr(cf, "detect_language", lambda src, model: "es")
+    monkeypatch.setattr(cf, "find_word_ranges", fake_find)
+
+    cf.main([str(video), "--json"])
+
+    assert seen["language"] == "es"
+    assert "o sea" in seen["words"]

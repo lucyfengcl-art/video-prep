@@ -236,5 +236,6 @@ def test_fillers_defaults():
     from video_prep.fillers import default_fillers
     assert "um" in default_fillers("en")
     assert "就是" in default_fillers("zh")
+    assert "o sea" in default_fillers("es")
     assert default_fillers("xx") == []
     assert default_fillers(None) == []

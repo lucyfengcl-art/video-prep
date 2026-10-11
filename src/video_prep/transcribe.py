@@ -15,9 +15,11 @@ from pathlib import Path
 from video_prep.media import probe_duration
 from video_prep.subtitle_quality import sanitize_segments
 
-# large-v3-turbo is ~2x faster than large-v3 on CPU with negligible quality loss
-# for short-form subtitles; pass --model large-v3 when you want maximum accuracy.
-DEFAULT_MODEL = "large-v3-turbo"
+# small (~460 MB, multilingual) keeps the first-run download modest and is
+# accurate for English, Spanish and other widely spoken languages; pass
+# --model large-v3-turbo (~1.5 GB) for the best accuracy, especially on Mandarin
+# or less common languages.
+DEFAULT_MODEL = "small"
 
 # Languages written without spaces between words: subtitles for these wrap by
 # character; everything else wraps on word boundaries. Used to pick how long
@@ -109,10 +111,28 @@ def _segment_dict(seg, *, word_timestamps: bool) -> dict:
     return entry
 
 
+def detect_language(
+    src: Path,
+    *,
+    model: str = DEFAULT_MODEL,
+    device: str = "auto",
+    compute_type: str = "auto",
+) -> str:
+    """Return the Whisper code of the language spoken in `src` (e.g. "en").
+
+    faster-whisper detects the language when transcribe() is called and yields
+    segments lazily, so leaving the generator unconsumed skips the decode.
+    """
+    device, compute_type = _pick_runtime(device, compute_type)
+    whisper = _load_model(model, device, compute_type)
+    _segments, info = whisper.transcribe(str(src), language=None, vad_filter=True)
+    return info.language
+
+
 def transcribe_segments(
     src: Path,
     *,
-    language: str = "zh",
+    language: str = "auto",
     model: str = DEFAULT_MODEL,
     word_timestamps: bool = False,
     device: str = "auto",
@@ -138,7 +158,7 @@ def transcribe_to_srt(
     src: Path,
     out_dir: Path,
     *,
-    language: str = "zh",
+    language: str = "auto",
     model: str = DEFAULT_MODEL,
     output_name: str | None = None,
     max_chars: int = -1,
