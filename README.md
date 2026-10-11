@@ -1,13 +1,39 @@
-# video-prep
+<p align="center">
+  <img src="assets/logo.png" alt="video-prep logo" width="120">
+</p>
 
-**English** | [简体中文](README.zh-CN.md)
+<h1 align="center">video-prep</h1>
+
+<p align="center">
+  <b>Drop raw clips in a folder, say "prep my clips", get silence-cut, subtitled video.</b><br>
+  Free · runs locally · subtitles in 90+ languages · works with any editor
+</p>
+
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#one-command-edit-recommended">How it works</a> ·
+  <a href="README.zh-CN.md">简体中文</a>
+</p>
+
+<!-- DEMO: replace with a before/after GIF, e.g.
+<p align="center"><img src="assets/demo.gif" alt="raw clips to clean subtitled video" width="720"></p>
+-->
+
+Example session in Claude Code:
+
+```text
+You:     prep my clips in ./raw
+Claude:  ✓ 8 clips · silence cut 4:12 → 2:51 · subtitles (English, auto-detected)
+         → out/2026-10-11/final.subbed.mp4  + per-clip .mp4/.srt for your editor
+```
 
 Automate the tedious cleanup pass that almost every talking-head edit needs: cut
 silent gaps, transcribe speech to `.srt` (any language, auto-detected),
 normalize speed. Outputs a clean
 `.mp4` + matching `.srt` per input clip, ready to drop into any editor (CapCut,
 Premiere, DaVinci, …) for the actual arrangement, transitions, and touch-ups.
-It's the pre-processing, not the creative edit.
+It's the pre-processing, not the creative edit. Footage never leaves your
+machine.
 
 ## What it's for
 
